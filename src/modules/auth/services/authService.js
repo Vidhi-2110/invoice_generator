@@ -1,79 +1,62 @@
 /**
- * Auth Service (Standalone & Reusable)
- * Provides authentication API abstraction with local storage persistence and mock network latency.
- * Can easily be swapped with real REST API or Firebase/Supabase endpoints.
+ * Auth Service (Pure LocalStorage / Standalone)
+ * Provides authentication using browser localStorage (No Backend required).
  */
 
-const STORAGE_USERS_KEY = 'invosaas_auth_users';
+const STORAGE_USERS_KEY = 'invosaas_users_db';
 const STORAGE_SESSION_KEY = 'invosaas_auth_session';
 
-// Default seed user for instant testing
 const DEFAULT_USERS = [
   {
-    id: 'user-admin-01',
-    name: 'Alex Morgan',
+    id: 'user-admin-1',
+    name: 'Admin User',
     email: 'admin@invosaas.com',
-    password: 'password123', // In production, this would be hashed on backend
-    role: 'Admin',
-    company: 'InvoSaaS Corp',
-    avatar: null,
-    createdAt: new Date().toISOString()
+    password: 'password123',
+    company: 'InvoSaaS Corp'
   }
 ];
 
-// Helper to get stored users
 const getStoredUsers = () => {
   try {
-    const data = localStorage.getItem(STORAGE_USERS_KEY);
-    if (!data) {
+    const raw = localStorage.getItem(STORAGE_USERS_KEY);
+    if (!raw) {
       localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(DEFAULT_USERS));
       return DEFAULT_USERS;
     }
-    return JSON.parse(data);
+    return JSON.parse(raw);
   } catch (err) {
-    console.error('Error reading auth users from localStorage:', err);
+    console.error('Error reading users from storage:', err);
     return DEFAULT_USERS;
   }
 };
 
-// Helper to save users
 const saveStoredUsers = (users) => {
   try {
     localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
   } catch (err) {
-    console.error('Error saving auth users to localStorage:', err);
+    console.error('Error saving users to storage:', err);
   }
 };
-
-// Simulated API latency helper
-const delay = (ms = 400) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const authService = {
   /**
    * Log in user with credentials
    */
   login: async ({ email, password, rememberMe = true }) => {
-    await delay(350);
     const users = getStoredUsers();
-    const cleanEmail = email.trim().toLowerCase();
+    const user = users.find(
+      (u) => u.email.toLowerCase() === email.toLowerCase().trim()
+    );
 
-    const foundUser = users.find((u) => u.email.toLowerCase() === cleanEmail);
-
-    if (!foundUser) {
-      throw new Error('No account found with this email address.');
+    if (!user || user.password !== password) {
+      throw new Error('Invalid email or password');
     }
 
-    if (foundUser.password !== password) {
-      throw new Error('Invalid email or password.');
-    }
-
-    // Strip password before returning user object
-    const { password: _, ...userSession } = foundUser;
-    const sessionToken = `jwt_mock_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-
+    const userWithoutPassword = { ...user };
+    delete userWithoutPassword.password;
     const sessionData = {
-      user: userSession,
-      token: sessionToken,
+      user: userWithoutPassword,
+      token: `mock_jwt_token_${Date.now()}_${Math.random().toString(36).substring(2)}`,
       expiresAt: rememberMe ? Date.now() + 7 * 24 * 60 * 60 * 1000 : Date.now() + 24 * 60 * 60 * 1000
     };
 
@@ -85,35 +68,31 @@ export const authService = {
    * Register a new user
    */
   register: async ({ name, email, password, company = '' }) => {
-    await delay(450);
     const users = getStoredUsers();
-    const cleanEmail = email.trim().toLowerCase();
+    const existing = users.find(
+      (u) => u.email.toLowerCase() === email.toLowerCase().trim()
+    );
 
-    if (users.some((u) => u.email.toLowerCase() === cleanEmail)) {
-      throw new Error('An account with this email address already exists.');
+    if (existing) {
+      throw new Error('User with this email already exists.');
     }
 
     const newUser = {
-      id: `user-${Date.now()}`,
+      id: `user_${Date.now()}`,
       name: name.trim(),
-      email: cleanEmail,
-      password: password,
-      role: 'Member',
-      company: company.trim() || 'My Business',
-      avatar: null,
-      createdAt: new Date().toISOString()
+      email: email.toLowerCase().trim(),
+      password,
+      company: company.trim()
     };
 
     users.push(newUser);
     saveStoredUsers(users);
 
-    // Automatically log in after registration
-    const { password: _, ...userSession } = newUser;
-    const sessionToken = `jwt_mock_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-
+    const userWithoutPassword = { ...newUser };
+    delete userWithoutPassword.password;
     const sessionData = {
-      user: userSession,
-      token: sessionToken,
+      user: userWithoutPassword,
+      token: `mock_jwt_token_${Date.now()}_${Math.random().toString(36).substring(2)}`,
       expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
     };
 
@@ -145,32 +124,40 @@ export const authService = {
    * Log out active user
    */
   logout: async () => {
-    await delay(150);
     localStorage.removeItem(STORAGE_SESSION_KEY);
   },
 
   /**
-   * Update current user profile
+   * Helper to get Bearer token for authentication state
    */
-  updateProfile: async (updatedData) => {
-    await delay(300);
-    const session = await authService.getCurrentSession();
-    if (!session) throw new Error('No active user session');
+  getToken: () => {
+    try {
+      const data = localStorage.getItem(STORAGE_SESSION_KEY);
+      if (!data) return null;
+      return JSON.parse(data).token;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Update user profile information
+   */
+  updateProfile: async (updatedFields) => {
+    const data = localStorage.getItem(STORAGE_SESSION_KEY);
+    if (!data) throw new Error('Not authenticated');
+    const session = JSON.parse(data);
 
     const users = getStoredUsers();
-    const userIndex = users.findIndex((u) => u.id === session.user.id);
-
-    if (userIndex !== -1) {
-      users[userIndex] = { ...users[userIndex], ...updatedData };
+    const index = users.findIndex((u) => u.id === session.user.id);
+    if (index !== -1) {
+      users[index] = { ...users[index], ...updatedFields };
       saveStoredUsers(users);
     }
 
-    const updatedUser = { ...session.user, ...updatedData };
-    delete updatedUser.password;
-
-    const newSession = { ...session, user: updatedUser };
-    localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(newSession));
-    return updatedUser;
+    session.user = { ...session.user, ...updatedFields };
+    localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(session));
+    return session.user;
   }
 };
 

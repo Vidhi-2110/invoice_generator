@@ -44,33 +44,41 @@ body {
 
 /* Print specific stylesheet rules */
 @media print {
-  * {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 6mm;
+  }
+
+  *, *::before, *::after {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  body {
+  html, body {
     background-color: white !important;
     color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
   }
-  
-  .print\:hidden {
+
+  /* Hide app navigation, header, and buttons */
+  .print\:hidden,
+  nav,
+  header,
+  aside,
+  button:not(.print\:inline) {
     display: none !important;
   }
-  
+
   .print\:p-0 {
     padding: 0 !important;
   }
 
-  .print\:pl-0 {
-    padding-left: 0 !important;
-  }
-
-  .print\:shadow-none {
-    box-shadow: none !important;
-  }
-
-  .print\:border-none {
-    border: none !important;
+  /* Keep single page print containers together without clipping */
+  .print\:break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }

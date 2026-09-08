@@ -16,29 +16,24 @@ const InvoiceTable = ({ invoices: propInvoices, onCreateClick }) => {
    *   Invoice "Pending" → linked Proforma reverts to "Pending"
    */
   const handleUpdate = (id, updatedData) => {
-    // Save the invoice first
     updateInvoice(id, updatedData);
 
-    // Check if this invoice was converted from a proforma
-    const sourceProformaNumber = updatedData.sourceProformaNumber;
-    if (!sourceProformaNumber) return;
+    const referenceNo = updatedData.referenceNo || updatedData.sourceProformaNumber;
+    if (!referenceNo) return;
 
-    // Find the linked proforma by its invoiceNumber
-    const linkedProforma = proformaInvoices.find(
-      (pi) => pi.invoiceNumber === sourceProformaNumber
-    );
-    if (!linkedProforma) return;
+    const proformaNumbers = referenceNo.split(',').map((s) => s.trim()).filter(Boolean);
 
-    // Map invoice status → proforma status
-    const newProformaStatus = updatedData.status === 'Paid' ? 'Approved' : 'Pending';
+    proformaNumbers.forEach((proformaNumber) => {
+      const linkedProforma = proformaInvoices.find(
+        (pi) => pi.invoiceNumber === proformaNumber
+      );
+      if (!linkedProforma) return;
 
-    // Only update if status actually needs to change
-    if (linkedProforma.status !== newProformaStatus) {
-      updateProforma(linkedProforma.id, {
-        ...linkedProforma,
-        status: newProformaStatus,
-      });
-    }
+      const newProformaStatus = updatedData.status === 'Paid' ? 'Approved' : 'Pending';
+      if (linkedProforma.status !== newProformaStatus) {
+        updateProforma(linkedProforma.id, { ...linkedProforma, status: newProformaStatus });
+      }
+    });
   };
 
   return (

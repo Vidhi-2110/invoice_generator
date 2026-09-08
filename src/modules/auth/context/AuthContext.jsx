@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
 import authService from '../services/authService';
 
@@ -39,7 +40,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       const msg = err.message || 'Failed to sign in. Please try again.';
       setError(msg);
-      throw new Error(msg);
+      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +57,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       const msg = err.message || 'Failed to create account. Please try again.';
       setError(msg);
-      throw new Error(msg);
+      throw err;
     } finally {
       setIsLoading(false);
     }

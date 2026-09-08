@@ -1,10 +1,27 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
-import { loadFromStorage, saveToStorage } from '../../../core/storage';
 import { generateNextNumber } from '../../../core/utils';
 import defaultInvoiceConfig from '../invoiceConfig';
 
 const InvoiceContext = createContext();
+
+const loadFromStorage = (key) => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : [];
+  } catch (error) {
+    console.error(`Error loading ${key} from localStorage:`, error);
+    return [];
+  }
+};
+
+const saveToStorage = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving ${key} to localStorage:`, error);
+  }
+};
 
 export const useInvoices = () => {
   const context = useContext(InvoiceContext);
@@ -15,12 +32,12 @@ export const useInvoices = () => {
 };
 
 export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => {
-  const storageKey = config.localStorageKey || 'invoices';
-  const [invoices, setInvoices] = useState(() => loadFromStorage(storageKey, []));
+  const [invoices, setInvoices] = useState(() => loadFromStorage(config.localStorageKey));
+  const isLoading = false;
 
   useEffect(() => {
-    saveToStorage(storageKey, invoices);
-  }, [storageKey, invoices]);
+    saveToStorage(config.localStorageKey, invoices);
+  }, [invoices, config.localStorageKey]);
 
   const addInvoice = (invoiceData) => {
     const nextNumber = generateNextNumber(invoices, config.numberPrefix);
@@ -28,7 +45,8 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
       ...invoiceData,
       id: Date.now().toString(),
       invoiceNumber: nextNumber,
-      rate: parseFloat(invoiceData.rate) || 0,
+      createdDate: invoiceData.createdDate || new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString(),
     };
     setInvoices((prev) => [newInvoice, ...prev]);
     return newInvoice;
@@ -36,17 +54,7 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
 
   const updateInvoice = (id, updatedData) => {
     setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === id
-          ? {
-              ...inv,
-              ...updatedData,
-              id,
-              invoiceNumber: inv.invoiceNumber,
-              rate: parseFloat(updatedData.rate) || 0,
-            }
-          : inv
-      )
+      prev.map((inv) => (inv.id === id ? { ...inv, ...updatedData } : inv))
     );
   };
 
@@ -62,6 +70,7 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
     <InvoiceContext.Provider
       value={{
         invoices,
+        isLoading,
         addInvoice,
         updateInvoice,
         deleteInvoice,

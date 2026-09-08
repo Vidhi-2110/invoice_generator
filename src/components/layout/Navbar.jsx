@@ -8,7 +8,7 @@ const Navbar = ({ toggleSidebar }) => {
   // Determine dynamic title based on location path
   const getPageTitle = () => {
     const path = location.pathname;
-    if (path.startsWith('/dashboard')) return 'Overview Dashboard';
+    if (path.startsWith('/dashboard')) return 'Dashboard';
     if (path.startsWith('/invoice')) {
       if (path.includes('/edit')) return 'Edit Invoice';
       if (path.match(/\/invoice\/[^/]+$/)) return 'Invoice Details';

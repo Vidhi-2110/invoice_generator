@@ -1,10 +1,27 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
-import { loadFromStorage, saveToStorage } from '../../../core/storage';
 import { generateNextNumber } from '../../../core/utils';
 import defaultProformaConfig from '../proformaConfig';
 
 const ProformaContext = createContext();
+
+const loadFromStorage = (key) => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : [];
+  } catch (error) {
+    console.error(`Error loading ${key} from localStorage:`, error);
+    return [];
+  }
+};
+
+const saveToStorage = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving ${key} to localStorage:`, error);
+  }
+};
 
 export const useProforma = () => {
   const context = useContext(ProformaContext);
@@ -17,14 +34,12 @@ export const useProforma = () => {
 export const useProformaInvoices = useProforma;
 
 export const ProformaProvider = ({ children, config = defaultProformaConfig }) => {
-  const storageKey = config.localStorageKey || 'proforma_invoices';
-  const [proformaInvoices, setProformaInvoices] = useState(() =>
-    loadFromStorage(storageKey, [])
-  );
+  const [proformaInvoices, setProformaInvoices] = useState(() => loadFromStorage(config.localStorageKey));
+  const isLoading = false;
 
   useEffect(() => {
-    saveToStorage(storageKey, proformaInvoices);
-  }, [storageKey, proformaInvoices]);
+    saveToStorage(config.localStorageKey, proformaInvoices);
+  }, [proformaInvoices, config.localStorageKey]);
 
   const addProforma = (proformaData) => {
     const nextNumber = generateNextNumber(proformaInvoices, config.numberPrefix);
@@ -32,7 +47,8 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
       ...proformaData,
       id: Date.now().toString(),
       invoiceNumber: nextNumber,
-      rate: parseFloat(proformaData.rate) || 0,
+      createdDate: proformaData.createdDate || new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString(),
     };
     setProformaInvoices((prev) => [newProforma, ...prev]);
     return newProforma;
@@ -40,17 +56,7 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
 
   const updateProforma = (id, updatedData) => {
     setProformaInvoices((prev) =>
-      prev.map((pi) =>
-        pi.id === id
-          ? {
-              ...pi,
-              ...updatedData,
-              id,
-              invoiceNumber: pi.invoiceNumber,
-              rate: parseFloat(updatedData.rate) || 0,
-            }
-          : pi
-      )
+      prev.map((pi) => (pi.id === id ? { ...pi, ...updatedData } : pi))
     );
   };
 
@@ -66,6 +72,7 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
     <ProformaContext.Provider
       value={{
         proformaInvoices,
+        isLoading,
         addProforma,
         updateProforma,
         deleteProforma,

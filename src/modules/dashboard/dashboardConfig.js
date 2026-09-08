@@ -1,5 +1,5 @@
 const dashboardConfig = {
-  title: 'Overview Dashboard',
+  title: 'Overview',
   subtitle: 'Real-time breakdown of your invoicing and proforma estimates.',
 };
 
