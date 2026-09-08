@@ -1,15 +1,17 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components';
-import { calculateSubtotal, calculateTax, calculateGrandTotal, formatCurrency, formatLongDate } from '../utils';
-import { FiArrowLeft, FiPrinter, FiMail, FiPhone, FiGlobe, FiMapPin, FiBriefcase } from 'react-icons/fi';
+import { calculateSubtotal, calculateTax, calculateGrandTotal, formatCurrency, formatNumericDate, numberToWords } from '../utils';
+import { FiArrowLeft, FiPrinter } from 'react-icons/fi';
+import futentiaStamp from '../../assets/Futentia Stamp.png';
+import jaySignature from '../../assets/Jay Signature 1.png';
+import logoImg from '../../assets/logo.png';
 
 const DocumentPreview = ({ item, config }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const shouldPrint = searchParams.get('print') === 'true';
 
-  const isFieldActive = (fieldName) => (config.fields ? config.fields.includes(fieldName) : true);
   const isProforma = config.title?.toLowerCase().includes('proforma');
   const routePrefix = isProforma ? '/proforma-invoice' : '/invoice';
   const company = config.companyDetails || {};
@@ -34,12 +36,15 @@ const DocumentPreview = ({ item, config }) => {
     );
   }
 
-  const subtotal = calculateSubtotal(item.rate);
+  const lineItemsList = item.lineItems && item.lineItems.length > 0
+    ? item.lineItems
+    : [{ description: item.description || '', rate: item.rate || 0 }];
+
+  const subtotal = lineItemsList.reduce((sum, l) => sum + (parseFloat(l.rate) || 0), 0);
   const taxRate = config.taxRate ?? 0.18;
   const gst = calculateTax(subtotal, taxRate);
   const total = calculateGrandTotal(subtotal, gst);
   const currencySymbol = config.currency || '₹';
-  const taxLabel = config.taxLabel || 'GST (18%)';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 print:p-0 print:shadow-none print:max-w-full">
@@ -49,176 +54,239 @@ const DocumentPreview = ({ item, config }) => {
           Back to List
         </Button>
         <Button variant={isProforma ? 'violet' : 'primary'} size="sm" onClick={() => window.print()} icon={FiPrinter}>
-          Print / PDF Download
+          Print / Download PDF
         </Button>
       </div>
 
-      {/* Document A4 Body */}
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-8 md:p-12 shadow-sm space-y-12 print:border-none print:shadow-none print:p-0">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start gap-8 border-b border-slate-100 pb-10">
-          <div className="space-y-4 max-w-md">
-            <div className="flex items-center gap-3">
-              <img
-                src="/logo.png"
-                alt="Logo"
-                className="h-10 w-auto object-contain"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-              <span className="text-xl font-black text-slate-800 tracking-tight">{company.name}</span>
-            </div>
+      {/* Document PDF Container */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl shadow-md overflow-hidden print:border-none print:shadow-none print:rounded-none">
+        {/* Top Blue Accent Line */}
+        <div className="h-2.5 bg-[#0B65C6] w-full"></div>
 
-            <div className="space-y-2 text-xs font-medium text-slate-500 leading-relaxed">
-              {company.address && (
-                <p className="flex items-start gap-2">
-                  <FiMapPin className="text-slate-400 mt-0.5 shrink-0" size={13} />
-                  <span>{company.address}</span>
+        <div className="p-8 md:p-12 space-y-8 print:p-6">
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+            {/* Left: Company Details */}
+            <div className="space-y-2 max-w-sm text-xs font-medium text-slate-700 leading-snug">
+              <div className="mb-3">
+                <img
+                  src={logoImg}
+                  alt="Futentia Logo"
+                  className="h-11 w-auto object-contain"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              </div>
+
+              {company.website && (
+                <p>
+                  <a href={`https://${company.website}`} target="_blank" rel="noreferrer" className="text-[#0B65C6] font-semibold hover:underline">
+                    {company.website}
+                  </a>
                 </p>
               )}
               {company.email && (
-                <p className="flex items-center gap-2">
-                  <FiMail className="text-slate-400 shrink-0" size={13} />
-                  <span>{company.email}</span>
+                <p>
+                  <span className="font-bold text-slate-900">Email:</span> {company.email}
                 </p>
               )}
               {company.phone && (
-                <p className="flex items-center gap-2">
-                  <FiPhone className="text-slate-400 shrink-0" size={13} />
-                  <span>{company.phone}</span>
-                </p>
-              )}
-              {company.website && (
-                <p className="flex items-center gap-2">
-                  <FiGlobe className="text-slate-400 shrink-0" size={13} />
-                  <span>{company.website}</span>
+                <p>
+                  <span className="font-bold text-slate-900">Phone:</span> {company.phone}
                 </p>
               )}
               {company.gstin && (
-                <p className="flex items-center gap-2 font-bold text-slate-700">
-                  <FiBriefcase className="text-slate-400 shrink-0" size={13} />
-                  <span>GSTIN: {company.gstin}</span>
+                <p>
+                  <span className="font-bold text-slate-900">GSTIN:</span> {company.gstin}
                 </p>
               )}
+              {company.address && <p className="text-slate-600 pt-1 leading-normal">{company.address}</p>}
+            </div>
+
+            {/* Right: Document Title & Number */}
+            <div className="text-left md:text-right space-y-2">
+              <div className="inline-block border-b-2 border-[#0B65C6] pb-1">
+                <h1 className="text-2xl md:text-3xl font-extrabold text-[#0B65C6] uppercase tracking-wide">
+                  {config.title || 'PROFORMA INVOICE'}
+                </h1>
+              </div>
+
+              <div className="text-xs font-semibold text-slate-800 space-y-1 pt-1">
+                <p>
+                  <span className="font-bold text-slate-900">{isProforma ? 'PF Invoice No.' : 'Invoice No.'}:</span>{' '}
+                  {item.invoiceNumber}
+                </p>
+                <p>
+                  <span className="font-bold text-slate-900">Invoice Date:</span> {formatNumericDate(item.createdDate)}
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="text-left md:text-right space-y-3.5">
-            <h1 className="text-4xl font-black text-slate-800 tracking-tight uppercase">{config.title}</h1>
-            <div className="space-y-1 text-sm font-semibold text-slate-600">
-              <p className="text-slate-400 text-xs uppercase tracking-wider font-bold">Document Number</p>
-              <p className={`text-lg font-black ${isProforma ? 'text-violet-600' : 'text-indigo-600'}`}>
-                {item.invoiceNumber}
-              </p>
-              {isFieldActive('referenceNo') && item.referenceNo && (
-                <p className="text-xs text-slate-500 font-semibold mt-1">Ref: {item.referenceNo}</p>
-              )}
-            </div>
-          </div>
-        </div>
+          <div className="border-t border-slate-200/80"></div>
 
-        {/* Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-50/50 border border-slate-100 rounded-2xl p-6 md:p-8">
+          {/* Bill To Section */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              {isProforma ? 'Estimated For' : 'Bill To'}
-            </h3>
-            <div className="space-y-1.5">
-              <p className="font-bold text-slate-800 text-base">{item.name}</p>
-              <p className="text-xs font-semibold text-slate-500 leading-relaxed max-w-xs">{item.address}</p>
-              {item.email && <p className="text-xs text-slate-500 font-medium">Email: {item.email}</p>}
-              {item.phone && <p className="text-xs text-slate-500 font-medium">Phone: {item.phone}</p>}
-              {item.gstin && <p className="text-xs font-bold text-slate-700">GSTIN: {item.gstin}</p>}
+            <h2 className="text-sm font-bold text-[#0B65C6] uppercase tracking-wider">Bill To</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-700 leading-relaxed">
+              <div className="space-y-1">
+                <p className="font-bold text-slate-900 text-sm">{item.name}</p>
+                {item.gstin && (
+                  <p>
+                    <span className="font-bold text-slate-900">GSTIN:</span> {item.gstin}
+                  </p>
+                )}
+                {item.phone && (
+                  <p>
+                    <span className="font-bold text-slate-900">Phone:</span> {item.phone}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-slate-700 leading-normal">{item.address}</p>
+                {item.email && (
+                  <p>
+                    <span className="font-bold text-slate-900">Email:</span> {item.email}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date Issued</p>
-              <p className="text-sm font-bold text-slate-800">{formatLongDate(item.createdDate)}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                {isProforma ? 'Valid Until' : 'Due Date'}
+          <div className="border-t border-slate-200/80"></div>
+
+          {/* Line Items Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 text-[#0B65C6] text-xs font-bold uppercase tracking-wider">
+                  <th className="py-3 px-3 w-16">Sr. No.</th>
+                  <th className="py-3 px-3">Description</th>
+                  <th className="py-3 px-3 text-right w-36">Rate</th>
+                  <th className="py-3 px-3 text-right w-36">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
+                {lineItemsList.map((line, idx) => (
+                  <tr key={idx} className={idx % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'}>
+                    <td className="py-3.5 px-3 text-slate-600 font-semibold">{idx + 1}.</td>
+                    <td className="py-3.5 px-3 whitespace-pre-wrap font-medium">{line.description}</td>
+                    <td className="py-3.5 px-3 text-right text-slate-700">
+                      {formatCurrency(line.rate, currencySymbol)}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-bold text-slate-900">
+                      {formatCurrency(line.rate, currencySymbol)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="border-t border-slate-200/80"></div>
+
+          {/* Summary & Amounts Section */}
+          <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+            {/* Left: Amount in Words */}
+            <div className="text-xs text-slate-800 font-medium max-w-md pt-1">
+              <p>
+                <span className="font-bold text-slate-900">In Words:</span> {numberToWords(total)}
               </p>
-              <p className="text-sm font-bold text-slate-800">{formatLongDate(item.dueDate)}</p>
             </div>
-            <div className="space-y-1 col-span-2">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</p>
-              <span
-                className={`inline-flex px-3 py-1 rounded-full text-xs font-extrabold tracking-wide uppercase ${
-                  item.status === 'Paid' || item.status === 'Approved'
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                    : 'bg-amber-50 text-amber-700 border border-amber-100'
-                }`}
-              >
-                {item.status || 'Pending'}
-              </span>
+
+            {/* Right: Calculations */}
+            <div className="w-full md:w-72 space-y-2 text-xs font-medium text-slate-700">
+              <div className="flex justify-between py-1">
+                <span className="font-bold text-[#0B65C6]">Subtotal</span>
+                <span className="font-bold text-slate-900">{formatCurrency(subtotal, currencySymbol)}</span>
+              </div>
+
+              <div className="flex justify-between py-1">
+                <span className="font-bold text-[#0B65C6]">CGST(9%)</span>
+                <span className="font-bold text-slate-900">{formatCurrency(gst / 2, currencySymbol)}</span>
+              </div>
+
+              <div className="flex justify-between py-1">
+                <span className="font-bold text-[#0B65C6]">SGST(9%)</span>
+                <span className="font-bold text-slate-900">{formatCurrency(gst / 2, currencySymbol)}</span>
+              </div>
+
+              <div className="flex justify-between py-1">
+                <span className="font-bold text-[#0B65C6]">Adjustments</span>
+                <span className="font-bold text-slate-900">{formatCurrency(0, currencySymbol)}</span>
+              </div>
+
+              <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                <span className="font-extrabold text-slate-900 text-sm">Total</span>
+                <span className="text-2xl font-black text-[#0B65C6]">
+                  {formatCurrency(total, currencySymbol)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200/80 pt-6"></div>
+
+          {/* Footer Details: Bank Details & Authorized Signatory */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+            {/* Bank Details */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-[#0B65C6] pb-1 border-b border-slate-200 inline-block">
+                Bank Details
+              </h3>
+              <div className="text-xs font-semibold text-slate-700 space-y-1 leading-snug">
+                <p>
+                  <span className="font-bold text-slate-900">Account Name:</span> Futentia Solutions Private Limited
+                </p>
+                <p>
+                  <span className="font-bold text-slate-900">Bank Name:</span> ICICI Bank
+                </p>
+                <p>
+                  <span className="font-bold text-slate-900">Account Number:</span> 000305027144
+                </p>
+                <p>
+                  <span className="font-bold text-slate-900">IFSC Code:</span> ICIC0000003
+                </p>
+                <p>
+                  <span className="font-bold text-slate-900">Branch:</span> Chakli Circle
+                </p>
+              </div>
+            </div>
+
+            {/* Authorized Signatory */}
+            <div className="text-left md:text-right space-y-2">
+              <h3 className="text-sm font-bold text-[#0B65C6] pb-1 border-b border-slate-200 inline-block">
+                Authorized Signatory
+              </h3>
+              <p className="text-xs font-semibold text-slate-800">For Futentia Solutions Pvt. Ltd.</p>
+
+              {/* Stamp & Signature Area */}
+              <div className="relative h-36 w-72 ml-0 md:ml-auto flex items-center justify-center my-2 overflow-visible">
+                {/* Futentia Official Stamp */}
+                <img
+                  src={futentiaStamp}
+                  alt="Futentia Official Stamp"
+                  className="h-32 w-32 absolute right-12 top-2 opacity-80 mix-blend-multiply pointer-events-none object-contain"
+                />
+
+                {/* Jay Signature */}
+                <img
+                  src={jaySignature}
+                  alt="Jay Signature"
+                  className="h-32 w-64 z-10 absolute right-0 top-0 opacity-100 mix-blend-multiply pointer-events-none object-contain scale-125 origin-right"
+                />
+              </div>
+
+              <p className="text-xs font-semibold text-slate-600">Authorized Signature</p>
             </div>
           </div>
         </div>
 
-        {/* Line Items Table */}
-        <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-                <th className="px-6 py-4">Description</th>
-                <th className="px-6 py-4 text-right">Amount ({currencySymbol})</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
-              <tr>
-                <td className="px-6 py-5 leading-relaxed font-semibold text-slate-800">{item.description}</td>
-                <td className="px-6 py-5 text-right font-bold text-slate-800">
-                  {formatCurrency(item.rate, currencySymbol)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Summary Footer Block */}
-        <div className="flex flex-col md:flex-row md:justify-between items-start gap-8 pt-4">
-          <div className="text-xs text-slate-400 max-w-xs leading-relaxed font-medium">
-            <p className="font-bold text-slate-600 mb-1">Notes & Terms:</p>
-            <p>
-              {isProforma
-                ? 'This document is a Proforma Invoice (preliminary estimate) for reference. It is not a tax invoice.'
-                : 'Please review and verify billing details. Payment is due within the stipulated period.'}
-            </p>
-          </div>
-
-          <div className="w-full md:w-80 space-y-3.5 text-sm font-semibold text-slate-600">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Subtotal</span>
-              <span className="text-slate-800 font-bold">{formatCurrency(subtotal, currencySymbol)}</span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-slate-400">{taxLabel}</span>
-              <span className="text-slate-800 font-bold">{formatCurrency(gst, currencySymbol)}</span>
-            </div>
-
-            <div className="flex justify-between border-t border-slate-100 pt-3.5 text-base">
-              <span className="font-black text-slate-800">Total Due</span>
-              <span className={`font-black text-lg ${isProforma ? 'text-violet-600' : 'text-indigo-600'}`}>
-                {formatCurrency(total, currencySymbol)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Signatory Block */}
-        <div className="pt-12 border-t border-slate-100 flex justify-end">
-          <div className="text-center space-y-16">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">For {company.name}</p>
-            <div className="space-y-1">
-              <div className="w-48 border-b border-slate-300 mx-auto"></div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pt-1.5">Authorized Signatory</p>
-            </div>
-          </div>
+        {/* Bottom Banner */}
+        <div className="bg-[#0B65C6] py-2.5 text-center text-white text-xs font-bold tracking-wider uppercase">
+          Driven By Intelligence
         </div>
       </div>
     </div>

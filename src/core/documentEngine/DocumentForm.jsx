@@ -8,10 +8,14 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
 
   const [formData, setFormData] = useState(() => {
     if (isEdit && initialData) {
+      const existingLineItems = initialData.lineItems?.length 
+        ? initialData.lineItems 
+        : [{ description: initialData.description || '', rate: initialData.rate || '' }];
       return {
         ...initialData,
         rate: initialData.rate?.toString() || '',
         referenceNo: initialData.referenceNo || '',
+        lineItems: existingLineItems,
       };
     }
 
@@ -31,8 +35,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
       gstin: '',
       createdDate: createdStr,
       dueDate: dueStr,
-      description: '',
-      rate: '',
+      lineItems: [{ description: '', rate: '' }],
     };
   });
 
@@ -50,6 +53,33 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
         [name]: '',
       }));
     }
+  };
+
+  const handleLineItemChange = (index, field, value) => {
+    const newLineItems = [...formData.lineItems];
+    newLineItems[index][field] = value;
+    setFormData((prev) => ({
+      ...prev,
+      lineItems: newLineItems,
+    }));
+    const errorKey = `lineItem_${index}_${field}`;
+    if (errors[errorKey]) {
+      setErrors((prev) => ({ ...prev, [errorKey]: '' }));
+    }
+  };
+
+  const addLineItem = () => {
+    setFormData((prev) => ({
+      ...prev,
+      lineItems: [...prev.lineItems, { description: '', rate: '' }],
+    }));
+  };
+
+  const removeLineItem = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      lineItems: prev.lineItems.filter((_, i) => i !== index),
+    }));
   };
 
   const validateForm = () => {
@@ -103,18 +133,25 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
       }
     }
 
-    if (isFieldActive('description') && !formData.description.trim()) {
-      newErrors.description = 'Description is required';
-    }
-
-    if (isFieldActive('rate')) {
-      if (!formData.rate) {
-        newErrors.rate = 'Rate is required';
+    if (isFieldActive('description') || isFieldActive('rate')) {
+      if (!formData.lineItems || formData.lineItems.length === 0) {
+        newErrors.lineItems = 'At least one line item is required';
       } else {
-        const numRate = parseFloat(formData.rate);
-        if (isNaN(numRate) || numRate <= 0) {
-          newErrors.rate = 'Rate must be a positive number';
-        }
+        formData.lineItems.forEach((item, index) => {
+          if (isFieldActive('description') && !item.description.trim()) {
+            newErrors[`lineItem_${index}_description`] = 'Description is required';
+          }
+          if (isFieldActive('rate')) {
+            if (!item.rate) {
+              newErrors[`lineItem_${index}_rate`] = 'Rate is required';
+            } else {
+              const numRate = parseFloat(item.rate);
+              if (isNaN(numRate) || numRate < 0) {
+                newErrors[`lineItem_${index}_rate`] = 'Rate must be a valid number';
+              }
+            }
+          }
+        });
       }
     }
 
@@ -125,10 +162,15 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
   const handleSubmit = (e) => {
     e.preventDefault();
     if (validateForm()) {
+      const totalRate = formData.lineItems.reduce((sum, item) => sum + (parseFloat(item.rate) || 0), 0);
       const cleanedData = {
         ...formData,
         gstin: formData.gstin ? formData.gstin.toUpperCase().trim() : '',
-        rate: parseFloat(formData.rate) || 0,
+        rate: totalRate,
+        lineItems: formData.lineItems.map(item => ({
+          ...item,
+          rate: parseFloat(item.rate) || 0
+        }))
       };
       onSave(cleanedData);
     }
@@ -147,6 +189,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       description: '',
       rate: '',
+      lineItems: [{ description: '', rate: '' }],
     });
     setErrors({});
   };
@@ -277,35 +320,63 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
           />
         )}
 
-        {/* Description */}
-        {isFieldActive('description') && (
-          <InputField
-            label="Line Item Description"
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            placeholder="e.g. Software Development Services - Q3"
-            error={errors.description}
-            required
-            containerClassName="md:col-span-2"
-          />
-        )}
+        {/* Line Items */}
+        <div className="md:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-800">Line Items</h3>
+            <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
+              + Add Item
+            </Button>
+          </div>
+          
+          {errors.lineItems && (
+            <p className="text-xs text-red-500 font-semibold">{errors.lineItems}</p>
+          )}
 
-        {/* Rate / Amount */}
-        {isFieldActive('rate') && (
-          <InputField
-            label={`Rate / Amount (${config.currency || '₹'})`}
-            type="number"
-            name="rate"
-            step="0.01"
-            value={formData.rate}
-            onChange={handleChange}
-            placeholder="0.00"
-            prefix={config.currency || '₹'}
-            error={errors.rate}
-            required
-          />
-        )}
+          <div className="space-y-4">
+            {formData.lineItems.map((item, index) => (
+              <div key={index} className="flex flex-col md:flex-row gap-4 p-4 border border-slate-100 rounded-xl bg-slate-50/50">
+                <div className="flex-grow">
+                  <InputField
+                    label={index === 0 ? "Line Item Description" : "Description"}
+                    name={`description_${index}`}
+                    value={item.description}
+                    onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
+                    placeholder="e.g. Software Development Services"
+                    error={errors[`lineItem_${index}_description`]}
+                    required={isFieldActive('description')}
+                  />
+                </div>
+                <div className="w-full md:w-1/3">
+                  <InputField
+                    label={index === 0 ? `Rate / Amount (${config.currency || '₹'})` : "Amount"}
+                    type="number"
+                    name={`rate_${index}`}
+                    step="0.01"
+                    value={item.rate}
+                    onChange={(e) => handleLineItemChange(index, 'rate', e.target.value)}
+                    placeholder="0.00"
+                    prefix={config.currency || '₹'}
+                    error={errors[`lineItem_${index}_rate`]}
+                    required={isFieldActive('rate')}
+                  />
+                </div>
+                {formData.lineItems.length > 1 && (
+                  <div className="flex items-center pt-6">
+                    <button
+                      type="button"
+                      onClick={() => removeLineItem(index)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Remove Item"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Form Action Buttons */}
