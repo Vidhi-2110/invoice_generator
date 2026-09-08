@@ -1,7 +1,7 @@
 import { DocumentTable } from '../../../core/documentEngine';
 import { useProforma } from '../context/ProformaContext';
 
-const ProformaTable = ({ proformas: propProformas, onCreateClick }) => {
+const ProformaTable = ({ proformas: propProformas, onCreateClick, onConvertToInvoice }) => {
   const { proformaInvoices: contextProformas, deleteProforma, updateProforma, config } = useProforma();
   const items = propProformas || contextProformas;
 
@@ -12,6 +12,7 @@ const ProformaTable = ({ proformas: propProformas, onCreateClick }) => {
       onUpdate={updateProforma}
       onCreateClick={onCreateClick}
       config={config}
+      onConvertToInvoice={onConvertToInvoice}
     />
   );
 };

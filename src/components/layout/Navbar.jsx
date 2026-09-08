@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom';
 import { FiMenu, FiBell, FiCalendar } from 'react-icons/fi';
+import { UserDropdown } from '../../modules/auth';
 
 const Navbar = ({ toggleSidebar }) => {
   const location = useLocation();
@@ -60,16 +61,8 @@ const Navbar = ({ toggleSidebar }) => {
         {/* Divider */}
         <span className="h-6 w-px bg-slate-200" aria-hidden="true" />
 
-        {/* Profile Info */}
-        <div className="flex items-center gap-3">
-          <div className="hidden md:block text-right">
-            <p className="text-sm font-semibold text-slate-800">Admin Account</p>
-            <p className="text-[10px] font-medium text-slate-400">admin@invosaas.com</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-600 shadow-inner">
-            A
-          </div>
-        </div>
+        {/* Profile Info Dropdown */}
+        <UserDropdown />
       </div>
     </header>
   );

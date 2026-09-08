@@ -2,9 +2,9 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, StatusBadge } from '../components';
 import { formatCurrency, formatDate } from '../utils';
-import { FiEye, FiEdit2, FiTrash2, FiPrinter, FiFolderPlus, FiSearch, FiCalendar, FiX } from 'react-icons/fi';
+import { FiEye, FiEdit2, FiTrash2, FiPrinter, FiFolderPlus, FiSearch, FiCalendar, FiX, FiFileText } from 'react-icons/fi';
 
-const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config }) => {
+const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, onConvertToInvoice }) => {
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -293,6 +293,21 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config }
                       >
                         <FiPrinter size={16} />
                       </button>
+
+                      {/* Convert to Invoice — only for Proforma */}
+                      {isProforma && onConvertToInvoice && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onConvertToInvoice(item);
+                          }}
+                          className="p-2 rounded-lg text-slate-400 hover:bg-violet-50 hover:text-violet-600 transition-colors"
+                          title="Convert to Invoice"
+                        >
+                          <FiFileText size={16} />
+                        </button>
+                      )}
 
                       <button
                         type="button"

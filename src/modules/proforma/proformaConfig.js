@@ -1,7 +1,7 @@
 const proformaConfig = {
   title: "Proforma Invoice",
   localStorageKey: "proforma_invoices",
-  numberPrefix: "FSP/26-27/",
+  numberPrefix: "FSPI-",
   currency: "₹",
   companyDetails: {
     name: "Futentia Solutions Private Limited",

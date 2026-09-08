@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components';
 import { calculateSubtotal, calculateTax, calculateGrandTotal, formatCurrency, formatNumericDate, numberToWords } from '../utils';
@@ -43,8 +43,12 @@ const DocumentPreview = ({ item, config }) => {
   const subtotal = lineItemsList.reduce((sum, l) => sum + (parseFloat(l.rate) || 0), 0);
   const taxRate = config.taxRate ?? 0.18;
   const gst = calculateTax(subtotal, taxRate);
-  const total = calculateGrandTotal(subtotal, gst);
   const currencySymbol = config.currency || '₹';
+
+  // Live-editable adjustment — starts from saved value, can be changed before print
+  const [liveAdjustment, setLiveAdjustment] = useState((parseFloat(item.adjustment) || 0).toString());
+  const adjustment = parseFloat(liveAdjustment) || 0;
+  const total = calculateGrandTotal(subtotal, gst) + adjustment;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 print:p-0 print:shadow-none print:max-w-full">
@@ -213,9 +217,23 @@ const DocumentPreview = ({ item, config }) => {
                 <span className="font-bold text-slate-900">{formatCurrency(gst / 2, currencySymbol)}</span>
               </div>
 
-              <div className="flex justify-between py-1">
-                <span className="font-bold text-[#0B65C6]">Adjustments</span>
-                <span className="font-bold text-slate-900">{formatCurrency(0, currencySymbol)}</span>
+              <div className="flex justify-between items-center py-1 gap-2">
+                <span className="font-bold text-[#0B65C6] shrink-0">Adjustments</span>
+                {/* Editable input — hidden when printing */}
+                <div className="flex items-center gap-1 print:hidden">
+                  <span className="text-xs font-bold text-slate-500">{currencySymbol}</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={liveAdjustment}
+                    onChange={(e) => setLiveAdjustment(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    className="w-28 text-right text-xs font-bold text-slate-900 border border-[#0B65C6]/40 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0B65C6]/50 bg-blue-50/40 transition"
+                    title="Click to edit adjustment"
+                  />
+                </div>
+                {/* Static value shown only when printing */}
+                <span className="hidden print:inline font-bold text-slate-900">{formatCurrency(adjustment, currencySymbol)}</span>
               </div>
 
               <div className="flex justify-between items-center pt-3 border-t border-slate-200">

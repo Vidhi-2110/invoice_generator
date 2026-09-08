@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Button, InputField, TextAreaField } from '../components';
+import { Button, InputField, TextAreaField, MultiSelectDropdown } from '../components';
 import { generateNextNumber } from '../utils';
 import { FiSave, FiRefreshCw, FiArrowLeft } from 'react-icons/fi';
 
-const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = false, config }) => {
+const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = false, config, referenceNoOptions = [], referenceNoData = [] }) => {
   const isFieldActive = (fieldName) => (config.fields ? config.fields.includes(fieldName) : true);
 
   const [formData, setFormData] = useState(() => {
@@ -15,7 +15,11 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
         ...initialData,
         rate: initialData.rate?.toString() || '',
         referenceNo: initialData.referenceNo || '',
+        referenceNoSelected: initialData.referenceNo
+          ? initialData.referenceNo.split(', ').filter(Boolean)
+          : [],
         lineItems: existingLineItems,
+        adjustment: initialData.adjustment?.toString() || '0',
       };
     }
 
@@ -28,6 +32,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
     return {
       invoiceNumber: nextNum,
       referenceNo: '',
+      referenceNoSelected: [],
       name: '',
       email: '',
       phone: '',
@@ -213,15 +218,87 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Reference Number */}
         {isFieldActive('referenceNo') && (
-          <InputField
-            label={`Reference No. ${isFieldActive('referenceNoRequired') ? '*' : '(Optional)'}`}
-            name="referenceNo"
-            value={formData.referenceNo}
-            onChange={handleChange}
-            placeholder="e.g. PO-74902 or QUOTE-8823"
-            error={errors.referenceNo}
-            containerClassName="md:col-span-2"
-          />
+          referenceNoOptions.length > 0 ? (
+            <div className="md:col-span-2">
+              <MultiSelectDropdown
+                label={`Reference No. ${isFieldActive('referenceNoRequired') ? '*' : '(Optional)'}`}
+                options={referenceNoOptions}
+                selected={formData.referenceNoSelected || []}
+                onChange={(vals) => {
+                  setFormData((prev) => {
+                    const base = {
+                      ...prev,
+                      referenceNoSelected: vals,
+                      referenceNo: vals.join(', '),
+                    };
+
+                    // Auto-fill from selected proforma(s)
+                    if (vals.length > 0 && referenceNoData.length > 0) {
+                      const selectedProformas = referenceNoData.filter((p) =>
+                        vals.includes(p.invoiceNumber)
+                      );
+
+                      if (selectedProformas.length > 0) {
+                        // Use the last-selected proforma for customer details
+                        const primary = selectedProformas[selectedProformas.length - 1];
+
+                        // Merge line items from all selected proformas
+                        const mergedLineItems = selectedProformas.flatMap((p) =>
+                          p.lineItems && p.lineItems.length > 0
+                            ? p.lineItems.map((li) => ({
+                                ...li,
+                                rate: li.rate?.toString() ?? '',
+                              }))
+                            : [{ description: p.description || '', rate: (p.rate ?? '').toString() }]
+                        );
+
+                        return {
+                          ...base,
+                          // Customer details — only overwrite if currently empty
+                          name:    primary.name    || prev.name,
+                          email:   primary.email   || prev.email,
+                          phone:   primary.phone   || prev.phone,
+                          address: primary.address || prev.address,
+                          gstin:   primary.gstin   || prev.gstin,
+                          // Line items — always replaced by the selection
+                          lineItems: mergedLineItems.length > 0
+                            ? mergedLineItems
+                            : [{ description: '', rate: '' }],
+                          // Track primary source for status-sync
+                          sourceProformaNumber: vals[0],
+                        };
+                      }
+                    }
+
+                    // Selection cleared — reset line items & source
+                    if (vals.length === 0) {
+                      return {
+                        ...base,
+                        lineItems: [{ description: '', rate: '' }],
+                        sourceProformaNumber: '',
+                      };
+                    }
+
+                    return base;
+                  });
+                  if (errors.referenceNo) setErrors((prev) => ({ ...prev, referenceNo: '' }));
+                }}
+                placeholder="Select proforma reference(s)…"
+                error={errors.referenceNo}
+                required={isFieldActive('referenceNoRequired')}
+              />
+            </div>
+          ) : (
+            <InputField
+              label={`Reference No. ${isFieldActive('referenceNoRequired') ? '*' : '(Optional)'}`}
+              name="referenceNo"
+              value={formData.referenceNo}
+              onChange={handleChange}
+              placeholder="e.g. PO-74902 or QUOTE-8823"
+              error={errors.referenceNo}
+              containerClassName="md:col-span-2"
+            />
+          )
         )}
 
         {/* Customer Name */}

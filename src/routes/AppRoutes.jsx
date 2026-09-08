@@ -13,6 +13,7 @@ import {
   ProformaEditPage,
   useProforma 
 } from '../modules/proforma';
+import { LoginPage, RegisterPage, ProtectedRoute } from '../modules/auth';
 
 const DashboardRoute = () => {
   const { invoices } = useInvoices();
@@ -23,7 +24,19 @@ const DashboardRoute = () => {
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<Layout />}>
+      {/* Public Auth Routes */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+
+      {/* Protected App Routes */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
         {/* Redirect from / to /dashboard */}
         <Route index element={<Navigate to="/dashboard" replace />} />
         
