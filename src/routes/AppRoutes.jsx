@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Layout from '../components/layout/Layout';
+import Layout from '../components/Layout/Layout';
 import { DashboardPage } from '../modules/dashboard';
 import { 
   InvoicePage, 
