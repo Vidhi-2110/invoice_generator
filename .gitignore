@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Logs
 logs
 *.log
@@ -24,3 +25,17 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+=======
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Build output
+dist/
+>>>>>>> 9ac7bfb (fix: untrack client as submodule, re-add as regular files; add server .gitignore + .env.example; wire proforma + auth to MongoDB)
