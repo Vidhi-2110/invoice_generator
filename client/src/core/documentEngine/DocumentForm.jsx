@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Button, InputField, TextAreaField, MultiSelectDropdown } from '../components';
 import { generateNextNumber } from '../utils';
-import { FiSave, FiRefreshCw, FiArrowLeft } from 'react-icons/fi';
+import { useClients } from '../../modules/client';
+import { FiSave, FiRefreshCw, FiArrowLeft, FiUser } from 'react-icons/fi';
 
 const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = false, config, referenceNoOptions = [], referenceNoData = [] }) => {
   const isFieldActive = (fieldName) => (config.fields ? config.fields.includes(fieldName) : true);
@@ -300,6 +301,64 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
             />
           )
         )}
+
+        {/* Quick Auto-Fill from Saved Client */}
+        {(() => {
+          try {
+            const clientCtx = useClients();
+            const clientList = clientCtx?.clients || [];
+            if (!clientList || clientList.length === 0) return null;
+
+            return (
+              <div className="md:col-span-2 bg-blue-50/60 border border-blue-200/80 rounded-xl p-3.5 space-y-1.5">
+                <label className="block text-xs font-bold text-blue-700 flex items-center gap-1.5">
+                  <FiUser size={15} />
+                  <span>Select Client (Auto-fills all customer details below)</span>
+                </label>
+                <select
+                  value={formData.selectedClientId || ''}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    if (!selectedId) return;
+                    const selectedClient = clientList.find((c) => c.id === selectedId || c.clientId === selectedId);
+                    if (selectedClient) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        selectedClientId: selectedClient.id,
+                        name: selectedClient.name || '',
+                        email: selectedClient.email || '',
+                        phone: selectedClient.phone || '',
+                        address: selectedClient.address || '',
+                        gstin: selectedClient.gstin || '',
+                      }));
+                      setErrors((prev) => ({
+                        ...prev,
+                        name: '',
+                        email: '',
+                        phone: '',
+                        address: '',
+                        gstin: '',
+                      }));
+                    }
+                  }}
+                  className="w-full text-xs font-bold text-slate-800 bg-white border border-blue-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-xs"
+                >
+                  <option value="">-- Select Saved Client to Auto-Fill --</option>
+                  {clientList.map((c) => {
+                    const idBadge = c.clientId || c.invoiceNumber || `CLT-${c.id?.slice(-4)}`;
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {idBadge} — {c.name} ({c.email})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            );
+          } catch {
+            return null;
+          }
+        })()}
 
         {/* Customer Name */}
         {isFieldActive('name') && (

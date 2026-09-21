@@ -5,7 +5,9 @@ const { getCollection, buildDocument, normalizeDoc } = require('../models/Profor
 const getAllProformas = async (req, res) => {
   try {
     const col = getCollection(req.app.locals.dbClient);
-    const docs = await col.find({}).sort({ createdAt: -1 }).toArray();
+    const userId = req.user?.id;
+    const query = userId ? { userId } : {};
+    const docs = await col.find(query).sort({ createdAt: -1 }).toArray();
     res.json(docs.map(normalizeDoc));
   } catch (err) {
     console.error('[ProformaController] getAllProformas:', err.message);
@@ -17,7 +19,7 @@ const getAllProformas = async (req, res) => {
 const createProforma = async (req, res) => {
   try {
     const col = getCollection(req.app.locals.dbClient);
-    const doc = buildDocument(req.body);
+    const doc = buildDocument({ ...req.body, userId: req.user?.id });
     const result = await col.insertOne(doc);
     res.status(201).json({ id: result.insertedId.toString(), ...doc });
   } catch (err) {
@@ -37,9 +39,11 @@ const updateProforma = async (req, res) => {
   try {
     const col = getCollection(req.app.locals.dbClient);
     const { _id, id: _frontendId, ...updateData } = req.body;
+    const userId = req.user?.id;
+    const query = userId ? { _id: new ObjectId(id), userId } : { _id: new ObjectId(id) };
 
     const updated = await col.findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      query,
       { $set: updateData },
       { returnDocument: 'after' }
     );
@@ -63,7 +67,9 @@ const deleteProforma = async (req, res) => {
 
   try {
     const col = getCollection(req.app.locals.dbClient);
-    const result = await col.deleteOne({ _id: new ObjectId(id) });
+    const userId = req.user?.id;
+    const query = userId ? { _id: new ObjectId(id), userId } : { _id: new ObjectId(id) };
+    const result = await col.deleteOne(query);
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Proforma invoice not found' });

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { FiFileText, FiBookOpen, FiClock, FiPlusCircle, FiTrendingUp, FiArrowRight, FiEye, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
+import ExportButton from '../../../components/ExportButton';
 import defaultDashboardConfig from '../dashboardConfig';
 
 const DashboardPage = ({ invoices = [], proformaInvoices = [], config = defaultDashboardConfig }) => {
@@ -91,7 +92,9 @@ const DashboardPage = ({ invoices = [], proformaInvoices = [], config = defaultD
           <p className="text-xs text-slate-400 mt-1">{config.subtitle}</p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <ExportButton customInvoices={invoices} customProformas={proformaInvoices} label="Export .xlsx" />
+
           <button
             onClick={() => navigate(config.proformaRoute || '/proforma-invoice')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 active:scale-95 transition-all shadow-sm"

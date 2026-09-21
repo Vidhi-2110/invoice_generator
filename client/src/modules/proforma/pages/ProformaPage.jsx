@@ -4,6 +4,7 @@ import { useProforma } from '../context/ProformaContext';
 import { useInvoices } from '../../invoice/context/InvoiceContext';
 import ProformaTable from '../components/ProformaTable';
 import ProformaForm from '../components/ProformaForm';
+import ExportButton from '../../../components/ExportButton';
 import { FiPlus, FiX, FiFileText, FiSave, FiCheckCircle } from 'react-icons/fi';
 import { formatCurrency } from '../../../core/utils';
 
@@ -211,13 +212,16 @@ const ProformaPage = () => {
               Manage and track your preliminary {config.title.toLowerCase()} estimates.
             </p>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-sm font-semibold text-white shadow-md shadow-violet-600/10 active:scale-95 transition-all self-start sm:self-auto"
-          >
-            <FiPlus size={16} />
-            <span>New {config.title}</span>
-          </button>
+          <div className="flex items-center gap-3 self-start sm:self-auto">
+            <ExportButton type="proformas" label="Export .xlsx" />
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-sm font-semibold text-white shadow-md shadow-violet-600/10 active:scale-95 transition-all shrink-0"
+            >
+              <FiPlus size={16} />
+              <span>New {config.title}</span>
+            </button>
+          </div>
         </div>
       )}
 

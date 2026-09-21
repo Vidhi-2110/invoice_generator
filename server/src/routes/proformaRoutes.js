@@ -1,5 +1,6 @@
 const express = require('express');
 const { dbCheck } = require('../middleware/dbCheck');
+const { protect } = require('../middleware/authMiddleware');
 const {
   getAllProformas,
   createProforma,
@@ -9,9 +10,9 @@ const {
 
 const router = express.Router();
 
-router.get('/',       dbCheck, getAllProformas);
-router.post('/',      dbCheck, createProforma);
-router.put('/:id',    dbCheck, updateProforma);
-router.delete('/:id', dbCheck, deleteProforma);
+router.get('/',       dbCheck, protect, getAllProformas);
+router.post('/',      dbCheck, protect, createProforma);
+router.put('/:id',    dbCheck, protect, updateProforma);
+router.delete('/:id', dbCheck, protect, deleteProforma);
 
 module.exports = router;

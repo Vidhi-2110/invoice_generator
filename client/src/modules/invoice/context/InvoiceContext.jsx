@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { generateNextNumber } from '../../../core/utils';
+import { useAuth } from '../../auth';
 import defaultInvoiceConfig from '../invoiceConfig';
 import {
   fetchInvoices,
@@ -11,7 +12,6 @@ import {
 
 const InvoiceContext = createContext();
 
-// ── localStorage helpers (offline fallback) ──────────────────────────────────
 const loadFromStorage = (key) => {
   try {
     const item = localStorage.getItem(key);
@@ -39,31 +39,41 @@ export const useInvoices = () => {
 };
 
 export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => {
+  const { user } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ── Load invoices from MongoDB on mount ──────────────────────────────────
+  const storageKey = user?.id
+    ? `${config.localStorageKey}_${user.id}`
+    : config.localStorageKey;
+
+  // ── Load invoices from MongoDB for current authenticated user ─────────────
   const loadInvoices = useCallback(async () => {
+    if (!localStorage.getItem('auth_token')) {
+      setInvoices([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
       const data = await fetchInvoices();
       setInvoices(data);
-      saveToStorage(config.localStorageKey, data); // keep local cache in sync
+      saveToStorage(storageKey, data);
     } catch (err) {
-      console.warn('⚠️ Could not reach backend, loading from localStorage:', err.message);
+      console.warn('⚠️ Could not reach backend, loading user data from localStorage:', err.message);
       setError(err.message);
-      // Graceful fallback to localStorage when server is unreachable
-      setInvoices(loadFromStorage(config.localStorageKey));
+      setInvoices(loadFromStorage(storageKey));
     } finally {
       setIsLoading(false);
     }
-  }, [config.localStorageKey]);
+  }, [storageKey]);
 
   useEffect(() => {
     loadInvoices();
-  }, [loadInvoices]);
+  }, [loadInvoices, user?.id]);
 
   // ── Add invoice ───────────────────────────────────────────────────────────
   const addInvoice = async (invoiceData) => {
@@ -79,17 +89,16 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
       const saved = await createInvoice(payload);
       setInvoices((prev) => {
         const updated = [saved, ...prev];
-        saveToStorage(config.localStorageKey, updated);
+        saveToStorage(storageKey, updated);
         return updated;
       });
       return saved;
     } catch (err) {
       console.error('Failed to save invoice to MongoDB:', err.message);
-      // Optimistic local-only fallback
       const localInvoice = { ...payload, id: Date.now().toString() };
       setInvoices((prev) => {
         const updated = [localInvoice, ...prev];
-        saveToStorage(config.localStorageKey, updated);
+        saveToStorage(storageKey, updated);
         return updated;
       });
       return localInvoice;
@@ -102,17 +111,16 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
       const saved = await updateInvoiceApi(id, updatedData);
       setInvoices((prev) => {
         const updated = prev.map((inv) => (inv.id === id ? saved : inv));
-        saveToStorage(config.localStorageKey, updated);
+        saveToStorage(storageKey, updated);
         return updated;
       });
     } catch (err) {
       console.error('Failed to update invoice in MongoDB:', err.message);
-      // Optimistic local update
       setInvoices((prev) => {
         const updated = prev.map((inv) =>
           inv.id === id ? { ...inv, ...updatedData } : inv
         );
-        saveToStorage(config.localStorageKey, updated);
+        saveToStorage(storageKey, updated);
         return updated;
       });
     }
@@ -125,15 +133,13 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
     } catch (err) {
       console.error('Failed to delete invoice from MongoDB:', err.message);
     }
-    // Always remove from local state (optimistic)
     setInvoices((prev) => {
       const updated = prev.filter((inv) => inv.id !== id);
-      saveToStorage(config.localStorageKey, updated);
+      saveToStorage(storageKey, updated);
       return updated;
     });
   };
 
-  // ── Get single invoice ────────────────────────────────────────────────────
   const getInvoice = (id) => invoices.find((inv) => inv.id === id);
 
   return (

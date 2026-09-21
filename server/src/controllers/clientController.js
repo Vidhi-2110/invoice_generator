@@ -1,0 +1,85 @@
+const { ObjectId } = require('mongodb');
+const { getCollection, buildDocument, normalizeDoc } = require('../models/Client');
+
+// ─── GET /api/clients ────────────────────────────────────────────────────────
+const getAllClients = async (req, res) => {
+  try {
+    const col = getCollection(req.app.locals.dbClient);
+    const userId = req.user?.id;
+    const query = userId ? { userId } : {};
+    const docs = await col.find(query).sort({ createdAt: -1 }).toArray();
+    res.json(docs.map(normalizeDoc));
+  } catch (err) {
+    console.error('[ClientController] getAllClients:', err.message);
+    res.status(500).json({ error: 'Failed to fetch clients' });
+  }
+};
+
+// ─── POST /api/clients ───────────────────────────────────────────────────────
+const createClient = async (req, res) => {
+  try {
+    const col = getCollection(req.app.locals.dbClient);
+    const doc = buildDocument({ ...req.body, userId: req.user?.id });
+    const result = await col.insertOne(doc);
+    res.status(201).json({ id: result.insertedId.toString(), ...doc });
+  } catch (err) {
+    console.error('[ClientController] createClient:', err.message);
+    res.status(500).json({ error: 'Failed to create client' });
+  }
+};
+
+// ─── PUT /api/clients/:id ────────────────────────────────────────────────────
+const updateClient = async (req, res) => {
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid client ID' });
+  }
+
+  try {
+    const col = getCollection(req.app.locals.dbClient);
+    const { _id, id: _frontendId, ...updateData } = req.body;
+    const userId = req.user?.id;
+    const query = userId ? { _id: new ObjectId(id), userId } : { _id: new ObjectId(id) };
+
+    const updated = await col.findOneAndUpdate(
+      query,
+      { $set: updateData },
+      { returnDocument: 'after' }
+    );
+
+    if (!updated) return res.status(404).json({ error: 'Client not found' });
+
+    res.json(normalizeDoc(updated));
+  } catch (err) {
+    console.error('[ClientController] updateClient:', err.message);
+    res.status(500).json({ error: 'Failed to update client' });
+  }
+};
+
+// ─── DELETE /api/clients/:id ─────────────────────────────────────────────────
+const deleteClient = async (req, res) => {
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid client ID' });
+  }
+
+  try {
+    const col = getCollection(req.app.locals.dbClient);
+    const userId = req.user?.id;
+    const query = userId ? { _id: new ObjectId(id), userId } : { _id: new ObjectId(id) };
+    const result = await col.deleteOne(query);
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    res.json({ success: true, id });
+  } catch (err) {
+    console.error('[ClientController] deleteClient:', err.message);
+    res.status(500).json({ error: 'Failed to delete client' });
+  }
+};
+
+module.exports = { getAllClients, createClient, updateClient, deleteClient };

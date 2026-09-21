@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { generateNextNumber } from '../../../core/utils';
+import { useAuth } from '../../auth';
 import defaultProformaConfig from '../proformaConfig';
 import {
   fetchProformas,
@@ -11,7 +12,6 @@ import {
 
 const ProformaContext = createContext();
 
-// ── localStorage helpers (offline fallback) ───────────────────────────────────
 const loadFromStorage = (key) => {
   try {
     const item = localStorage.getItem(key);
@@ -41,30 +41,41 @@ export const useProforma = () => {
 export const useProformaInvoices = useProforma;
 
 export const ProformaProvider = ({ children, config = defaultProformaConfig }) => {
+  const { user } = useAuth();
   const [proformaInvoices, setProformaInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ── Load from MongoDB on mount ────────────────────────────────────────────
+  const storageKey = user?.id
+    ? `${config.localStorageKey}_${user.id}`
+    : config.localStorageKey;
+
+  // ── Load from MongoDB for current user ─────────────────────────────────────
   const loadProformas = useCallback(async () => {
+    if (!localStorage.getItem('auth_token')) {
+      setProformaInvoices([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
       const data = await fetchProformas();
       setProformaInvoices(data);
-      saveToStorage(config.localStorageKey, data);
+      saveToStorage(storageKey, data);
     } catch (err) {
       console.warn('⚠️ Could not reach backend, loading from localStorage:', err.message);
       setError(err.message);
-      setProformaInvoices(loadFromStorage(config.localStorageKey));
+      setProformaInvoices(loadFromStorage(storageKey));
     } finally {
       setIsLoading(false);
     }
-  }, [config.localStorageKey]);
+  }, [storageKey]);
 
   useEffect(() => {
     loadProformas();
-  }, [loadProformas]);
+  }, [loadProformas, user?.id]);
 
   // ── Add proforma ──────────────────────────────────────────────────────────
   const addProforma = async (proformaData) => {
@@ -80,7 +91,7 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
       const saved = await createProforma(payload);
       setProformaInvoices((prev) => {
         const updated = [saved, ...prev];
-        saveToStorage(config.localStorageKey, updated);
+        saveToStorage(storageKey, updated);
         return updated;
       });
       return saved;
@@ -89,7 +100,7 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
       const localProforma = { ...payload, id: Date.now().toString() };
       setProformaInvoices((prev) => {
         const updated = [localProforma, ...prev];
-        saveToStorage(config.localStorageKey, updated);
+        saveToStorage(storageKey, updated);
         return updated;
       });
       return localProforma;
@@ -102,7 +113,7 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
       const saved = await updateProformaApi(id, updatedData);
       setProformaInvoices((prev) => {
         const updated = prev.map((pi) => (pi.id === id ? saved : pi));
-        saveToStorage(config.localStorageKey, updated);
+        saveToStorage(storageKey, updated);
         return updated;
       });
     } catch (err) {
@@ -111,7 +122,7 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
         const updated = prev.map((pi) =>
           pi.id === id ? { ...pi, ...updatedData } : pi
         );
-        saveToStorage(config.localStorageKey, updated);
+        saveToStorage(storageKey, updated);
         return updated;
       });
     }
@@ -126,12 +137,11 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
     }
     setProformaInvoices((prev) => {
       const updated = prev.filter((pi) => pi.id !== id);
-      saveToStorage(config.localStorageKey, updated);
+      saveToStorage(storageKey, updated);
       return updated;
     });
   };
 
-  // ── Get single proforma ───────────────────────────────────────────────────
   const getProforma = (id) => proformaInvoices.find((pi) => pi.id === id);
 
   return (

@@ -13,6 +13,7 @@ import {
   ProformaEditPage,
   useProforma 
 } from '../modules/proforma';
+import { ClientPage } from '../modules/client';
 import { LoginPage, RegisterPage, ProtectedRoute } from '../modules/auth';
 
 const DashboardRoute = () => {
@@ -52,6 +53,9 @@ const AppRoutes = () => {
         <Route path="proforma-invoice" element={<ProformaPage />} />
         <Route path="proforma-invoice/:id" element={<ProformaDetailPage />} />
         <Route path="proforma-invoice/:id/edit" element={<ProformaEditPage />} />
+        
+        {/* Client Management */}
+        <Route path="clients" element={<ClientPage />} />
         
         {/* Fallback redirect to dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

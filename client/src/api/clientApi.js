@@ -15,31 +15,31 @@ const handle = async (res) => {
   return data;
 };
 
-/** Fetch all invoices for the authenticated user */
-export const fetchInvoices = () =>
-  fetch(`${BASE}/api/invoices`, {
+/** Fetch all clients for authenticated user */
+export const fetchClients = () =>
+  fetch(`${BASE}/api/clients`, {
     headers: getAuthHeaders(),
   }).then(handle);
 
-/** Create a new invoice for the authenticated user */
-export const createInvoice = (invoice) =>
-  fetch(`${BASE}/api/invoices`, {
+/** Create a new client */
+export const createClient = (client) =>
+  fetch(`${BASE}/api/clients`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify(invoice),
+    body: JSON.stringify(client),
   }).then(handle);
 
-/** Update an existing invoice by id */
-export const updateInvoiceApi = (id, data) =>
-  fetch(`${BASE}/api/invoices/${id}`, {
+/** Update an existing client by id */
+export const updateClientApi = (id, data) =>
+  fetch(`${BASE}/api/clients/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
   }).then(handle);
 
-/** Delete an invoice by id */
-export const deleteInvoiceApi = (id) =>
-  fetch(`${BASE}/api/invoices/${id}`, {
+/** Delete a client by id */
+export const deleteClientApi = (id) =>
+  fetch(`${BASE}/api/clients/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   }).then(handle);
