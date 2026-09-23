@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { generateNextNumber } from '../../../core/utils';
 import { useAuth } from '../../auth';
+import authService from '../../auth/services/authService';
 import defaultClientConfig from '../clientConfig';
 import {
   fetchClients,
@@ -50,7 +51,7 @@ export const ClientProvider = ({ children, config = defaultClientConfig }) => {
 
   // ── Load clients from MongoDB for current user ─────────────────────────────
   const loadClients = useCallback(async () => {
-    if (!localStorage.getItem('auth_token')) {
+    if (!authService.getToken()) {
       setClients([]);
       setIsLoading(false);
       return;

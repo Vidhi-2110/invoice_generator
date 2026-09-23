@@ -13,7 +13,6 @@ const invoiceConfig = {
   },
   fields: [
     "invoiceNumber",
-    "referenceNo",
     "name",
     "address",
     "phone",

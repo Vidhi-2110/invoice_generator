@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '../components/Layout/Layout';
 import { DashboardPage } from '../modules/dashboard';
@@ -17,8 +18,14 @@ import { ClientPage } from '../modules/client';
 import { LoginPage, RegisterPage, ProtectedRoute } from '../modules/auth';
 
 const DashboardRoute = () => {
-  const { invoices } = useInvoices();
-  const { proformaInvoices } = useProforma();
+  const { invoices, reload: reloadInvoices } = useInvoices();
+  const { proformaInvoices, reload: reloadProformas } = useProforma();
+
+  useEffect(() => {
+    reloadInvoices?.();
+    reloadProformas?.();
+  }, [reloadInvoices, reloadProformas]);
+
   return <DashboardPage invoices={invoices} proformaInvoices={proformaInvoices} />;
 };
 

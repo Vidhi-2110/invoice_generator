@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { generateNextNumber } from '../../../core/utils';
 import { useAuth } from '../../auth';
+import authService from '../../auth/services/authService';
 import defaultProformaConfig from '../proformaConfig';
 import {
   fetchProformas,
@@ -52,7 +53,7 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
 
   // ── Load from MongoDB for current user ─────────────────────────────────────
   const loadProformas = useCallback(async () => {
-    if (!localStorage.getItem('auth_token')) {
+    if (!authService.getToken()) {
       setProformaInvoices([]);
       setIsLoading(false);
       return;

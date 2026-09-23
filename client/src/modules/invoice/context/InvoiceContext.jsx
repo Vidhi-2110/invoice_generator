@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { generateNextNumber } from '../../../core/utils';
 import { useAuth } from '../../auth';
+import authService from '../../auth/services/authService';
 import defaultInvoiceConfig from '../invoiceConfig';
 import {
   fetchInvoices,
@@ -50,7 +51,7 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
 
   // ── Load invoices from MongoDB for current authenticated user ─────────────
   const loadInvoices = useCallback(async () => {
-    if (!localStorage.getItem('auth_token')) {
+    if (!authService.getToken()) {
       setInvoices([]);
       setIsLoading(false);
       return;

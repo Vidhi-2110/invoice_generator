@@ -1,7 +1,9 @@
+import authService from '../modules/auth/services/authService';
+
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('auth_token');
+  const token = authService.getToken();
   const headers = { 'Content-Type': 'application/json' };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;

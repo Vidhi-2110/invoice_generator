@@ -196,6 +196,7 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-xs font-bold uppercase tracking-wider">
                 <th className="px-6 py-4">{config.title} No.</th>
+                {!isProforma && <th className="px-6 py-4">Proforma Refs.</th>}
                 {isFieldActive('referenceNo') && <th className="px-6 py-4">Reference No.</th>}
                 <th className="px-6 py-4">Customer</th>
                 <th className="px-6 py-4">Created Date</th>
@@ -221,6 +222,26 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                     </span>
                   </td>
 
+                  {/* Proforma Reference IDs — Invoice table only */}
+                  {!isProforma && (
+                    <td className="px-6 py-4">
+                      {item.proformaRefs && item.proformaRefs.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {item.proformaRefs.map((ref) => (
+                            <span
+                              key={ref}
+                              className="inline-block px-2 py-0.5 text-[10px] font-bold rounded-md bg-violet-50 text-violet-600 border border-violet-100"
+                            >
+                              {ref}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-slate-300 text-xs">—</span>
+                      )}
+                    </td>
+                  )}
+
                   {/* Reference No. */}
                   {isFieldActive('referenceNo') && (
                     <td className="px-6 py-4 text-slate-500 font-semibold text-xs">
@@ -233,6 +254,11 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                     <div>
                       <p className="font-bold text-slate-800">{item.name}</p>
                       <p className="text-xs text-slate-400 font-normal mt-0.5">{item.email}</p>
+                      {item.clientId && (
+                        <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-50 text-blue-600 border border-blue-100">
+                          {item.clientId}
+                        </span>
+                      )}
                     </div>
                   </td>
 

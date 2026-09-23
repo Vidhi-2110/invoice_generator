@@ -169,14 +169,18 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
     e.preventDefault();
     if (validateForm()) {
       const totalRate = formData.lineItems.reduce((sum, item) => sum + (parseFloat(item.rate) || 0), 0);
+      // Strip internal UI-only fields that should never be persisted to the database
+      // eslint-disable-next-line no-unused-vars
+      const { selectedClientId, referenceNoSelected, ...persistableData } = formData;
       const cleanedData = {
-        ...formData,
+        ...persistableData,
         gstin: formData.gstin ? formData.gstin.toUpperCase().trim() : '',
         rate: totalRate,
-        lineItems: formData.lineItems.map(item => ({
-          ...item,
-          rate: parseFloat(item.rate) || 0
-        }))
+        lineItems: formData.lineItems.map(item => {
+          // eslint-disable-next-line no-unused-vars
+          const { _fromProforma, ...cleanItem } = item;
+          return { ...cleanItem, rate: parseFloat(item.rate) || 0 };
+        })
       };
       onSave(cleanedData);
     }
@@ -313,7 +317,10 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
               <div className="md:col-span-2 bg-blue-50/60 border border-blue-200/80 rounded-xl p-3.5 space-y-1.5">
                 <label className="block text-xs font-bold text-blue-700 flex items-center gap-1.5">
                   <FiUser size={15} />
-                  <span>Select Client (Auto-fills all customer details below)</span>
+                  <span>
+                    Select Client (Auto-fills customer details
+                    {!isProforma ? ' & loads their proforma line items' : ''})
+                  </span>
                 </label>
                 <select
                   value={formData.selectedClientId || ''}
@@ -322,14 +329,61 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
                     if (!selectedId) return;
                     const selectedClient = clientList.find((c) => c.id === selectedId || c.clientId === selectedId);
                     if (selectedClient) {
+                      // For Invoice mode: find all PENDING proformas belonging to this client
+                      // (Approved proformas are already invoiced — skip them)
+                      let mergedLineItems = null;
+                      if (!isProforma && referenceNoData && referenceNoData.length > 0) {
+                        const clientProformas = referenceNoData.filter(
+                          (p) =>
+                            (p.clientId === selectedClient.clientId ||
+                              p.email?.toLowerCase() === selectedClient.email?.toLowerCase()) &&
+                            p.status !== 'Approved'
+                        );
+                        if (clientProformas.length > 0) {
+                          mergedLineItems = clientProformas.flatMap((p) =>
+                            p.lineItems && p.lineItems.length > 0
+                              ? p.lineItems.map((li) => ({
+                                  ...li,
+                                  rate: li.rate?.toString() ?? '',
+                                  _fromProforma: p.invoiceNumber,
+                                }))
+                              : [{ description: p.description || '', rate: (p.rate ?? '').toString() }]
+                          );
+                        }
+                      }
+
+                      // Collect PENDING proforma IDs that were loaded for this client
+                      // (Approved proformas are already invoiced — skip them)
+                      let proformaRefs = null;
+                      if (!isProforma && referenceNoData && referenceNoData.length > 0) {
+                        const clientProformas = referenceNoData.filter(
+                          (p) =>
+                            (p.clientId === selectedClient.clientId ||
+                              p.email?.toLowerCase() === selectedClient.email?.toLowerCase()) &&
+                            p.status !== 'Approved'
+                        );
+                        if (clientProformas.length > 0) {
+                          proformaRefs = clientProformas.map((p) => p.invoiceNumber).filter(Boolean);
+                        }
+                      }
+
                       setFormData((prev) => ({
                         ...prev,
                         selectedClientId: selectedClient.id,
+                        clientId: selectedClient.clientId || '',
                         name: selectedClient.name || '',
                         email: selectedClient.email || '',
                         phone: selectedClient.phone || '',
                         address: selectedClient.address || '',
                         gstin: selectedClient.gstin || '',
+                        // Replace line items with proforma items if available (Invoice mode only)
+                        ...(mergedLineItems && mergedLineItems.length > 0
+                          ? { lineItems: mergedLineItems }
+                          : {}),
+                        // Store proforma ref IDs so they appear in the invoice table column
+                        ...(proformaRefs && proformaRefs.length > 0
+                          ? { proformaRefs }
+                          : {}),
                       }));
                       setErrors((prev) => ({
                         ...prev,
