@@ -225,20 +225,29 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                   {/* Proforma Reference IDs — Invoice table only */}
                   {!isProforma && (
                     <td className="px-6 py-4">
-                      {item.proformaRefs && item.proformaRefs.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {item.proformaRefs.map((ref) => (
-                            <span
-                              key={ref}
-                              className="inline-block px-2 py-0.5 text-[10px] font-bold rounded-md bg-violet-50 text-violet-600 border border-violet-100"
-                            >
-                              {ref}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-slate-300 text-xs">—</span>
-                      )}
+                      {(() => {
+                        // Collect refs from proformaRefs array OR legacy sourceProformaNumber string
+                        const refs = [
+                          ...(Array.isArray(item.proformaRefs) ? item.proformaRefs : []),
+                          ...(item.sourceProformaNumber && !Array.isArray(item.proformaRefs)
+                            ? [item.sourceProformaNumber]
+                            : []),
+                        ].filter(Boolean);
+                        return refs.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {refs.map((ref) => (
+                              <span
+                                key={ref}
+                                className="inline-block px-2 py-0.5 text-[10px] font-bold rounded-md bg-violet-50 text-violet-600 border border-violet-100"
+                              >
+                                {ref}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 text-xs">—</span>
+                        );
+                      })()}
                     </td>
                   )}
 
