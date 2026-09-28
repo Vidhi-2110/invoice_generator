@@ -39,3 +39,20 @@ export const getMeApi = (token) =>
   fetch(`${BASE}/api/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
   }).then(handle);
+
+/**
+ * Update the current user's profile (name, email, password, avatar)
+ * @param {object} payload - { name?, email?, currentPassword?, newPassword?, avatar? }
+ * @param {string} token
+ * @returns {{ user: object }}
+ */
+export const updateProfileApi = (payload, token) =>
+  fetch(`${BASE}/api/auth/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  }).then(handle);
+

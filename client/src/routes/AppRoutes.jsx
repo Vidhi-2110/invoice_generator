@@ -16,6 +16,7 @@ import {
 } from '../modules/proforma';
 import { ClientPage } from '../modules/client';
 import { LoginPage, RegisterPage, ProtectedRoute } from '../modules/auth';
+import SettingsPage from '../modules/settings/SettingsPage';
 
 const DashboardRoute = () => {
   const { invoices, reload: reloadInvoices } = useInvoices();
@@ -63,6 +64,9 @@ const AppRoutes = () => {
         
         {/* Client Management */}
         <Route path="clients" element={<ClientPage />} />
+
+        {/* Company Settings */}
+        <Route path="settings" element={<SettingsPage />} />
         
         {/* Fallback redirect to dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

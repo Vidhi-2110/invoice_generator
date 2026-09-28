@@ -21,6 +21,9 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
 
   const toggleStatus = (e, item) => {
     e.stopPropagation();
+    // Lock status for Approved proformas and Paid invoices
+    if (isProforma && item.status === 'Approved') return;
+    if (!isProforma && item.status === 'Paid') return;
     const isApproved = item.status === 'Approved';
     const isPaid = item.status === 'Paid';
     let newStatus;
@@ -286,7 +289,8 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                     <StatusBadge
                       status={item.status}
                       dueDate={item.dueDate}
-                      onClick={(e) => toggleStatus(e, item)}
+                      onClick={(isProforma && item.status === 'Approved') || (!isProforma && item.status === 'Paid') ? undefined : (e) => toggleStatus(e, item)}
+                      locked={(isProforma && item.status === 'Approved') || (!isProforma && item.status === 'Paid')}
                     />
                   </td>
 
@@ -305,17 +309,19 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                         <FiEye size={16} />
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`${routePrefix}/${item.id}/edit`);
-                        }}
-                        className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-amber-600 transition-colors"
-                        title={`Edit ${config.title}`}
-                      >
-                        <FiEdit2 size={16} />
-                      </button>
+                      {!(isProforma ? item.status === 'Approved' : item.status === 'Paid') && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`${routePrefix}/${item.id}/edit`);
+                          }}
+                          className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-amber-600 transition-colors"
+                          title={`Edit ${config.title}`}
+                        >
+                          <FiEdit2 size={16} />
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -329,8 +335,8 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                         <FiPrinter size={16} />
                       </button>
 
-                      {/* Convert to Invoice — only for Proforma */}
-                      {isProforma && onConvertToInvoice && (
+                      {/* Convert to Invoice — only for Proforma, hidden when already Approved */}
+                      {isProforma && onConvertToInvoice && item.status !== 'Approved' && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -344,23 +350,25 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (
-                            window.confirm(
-                              `Are you sure you want to delete this ${config.title.toLowerCase()} ${item.invoiceNumber}?`
-                            )
-                          ) {
-                            onDelete(item.id);
-                          }
-                        }}
-                        className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-red-600 transition-colors"
-                        title={`Delete ${config.title}`}
-                      >
-                        <FiTrash2 size={16} />
-                      </button>
+                      {!(isProforma ? item.status === 'Approved' : item.status === 'Paid') && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (
+                              window.confirm(
+                                `Are you sure you want to delete this ${config.title.toLowerCase()} ${item.invoiceNumber}?`
+                              )
+                            ) {
+                              onDelete(item.id);
+                            }
+                          }}
+                          className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-red-600 transition-colors"
+                          title={`Delete ${config.title}`}
+                        >
+                          <FiTrash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

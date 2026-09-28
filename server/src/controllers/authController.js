@@ -91,4 +91,65 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe };
+// ─── PUT /api/auth/profile ───────────────────────────────────────────────────
+// Protected — updates name, email, password, and/or avatar
+const updateProfile = async (req, res) => {
+  const { name, email, currentPassword, newPassword, avatar } = req.body;
+
+  try {
+    const col = getCollection(req.app.locals.dbClient);
+    const { ObjectId } = require('mongodb');
+    const userDoc = await col.findOne({ _id: new ObjectId(req.user.id) });
+
+    if (!userDoc) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const updates = {};
+
+    // Update name
+    if (name && name.trim()) updates.name = name.trim();
+
+    // Update email — check no duplicate
+    if (email && email.toLowerCase().trim() !== userDoc.email) {
+      const duplicate = await col.findOne({ email: email.toLowerCase().trim() });
+      if (duplicate) {
+        return res.status(409).json({ error: 'This email is already in use by another account.' });
+      }
+      updates.email = email.toLowerCase().trim();
+    }
+
+    // Update password — require current password verification
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required to set a new password.' });
+      }
+      const isMatch = await bcrypt.compare(currentPassword, userDoc.passwordHash);
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Current password is incorrect.' });
+      }
+      updates.passwordHash = await bcrypt.hash(newPassword, 12);
+    }
+
+    // Update avatar (stored as base64 data URL)
+    if (avatar !== undefined) {
+      updates.avatar = avatar; // null to remove, or base64 string
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No changes provided.' });
+    }
+
+    await col.updateOne({ _id: new ObjectId(req.user.id) }, { $set: updates });
+
+    // Return fresh user doc
+    const updatedDoc = await col.findOne({ _id: new ObjectId(req.user.id) });
+    res.json({ user: normalizeDoc(updatedDoc) });
+  } catch (err) {
+    console.error('[AuthController] updateProfile:', err.message);
+    res.status(500).json({ error: 'Failed to update profile. Please try again.' });
+  }
+};
+
+module.exports = { register, login, getMe, updateProfile };
+

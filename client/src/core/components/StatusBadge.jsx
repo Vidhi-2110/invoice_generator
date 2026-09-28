@@ -1,10 +1,21 @@
-import { FiCheckCircle, FiClock, FiAlertTriangle } from 'react-icons/fi';
+import { FiCheckCircle, FiClock, FiAlertTriangle, FiLock } from 'react-icons/fi';
 
-const StatusBadge = ({ status, dueDate, onClick }) => {
+const StatusBadge = ({ status, dueDate, onClick, locked = false }) => {
   const isPaid = status === 'Paid' || status === 'Approved';
   const isOverdue = !isPaid && dueDate && new Date(dueDate) < new Date(new Date().setHours(0, 0, 0, 0));
 
   if (isPaid) {
+    if (locked) {
+      return (
+        <span
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default select-none"
+          title="Status is locked"
+        >
+          <FiLock size={11} />
+          <span>{status}</span>
+        </span>
+      );
+    }
     return (
       <button
         type="button"

@@ -9,6 +9,7 @@ const Navbar = ({ toggleSidebar }) => {
   const getPageTitle = () => {
     const path = location.pathname;
     if (path.startsWith('/dashboard')) return 'Dashboard';
+    if (path.startsWith('/settings')) return 'Company Settings';
     if (path.startsWith('/invoice')) {
       if (path.includes('/edit')) return 'Edit Invoice';
       if (path.match(/\/invoice\/[^/]+$/)) return 'Invoice Details';
@@ -19,6 +20,7 @@ const Navbar = ({ toggleSidebar }) => {
       if (path.match(/\/proforma-invoice\/[^/]+$/)) return 'Proforma Invoice Details';
       return 'Proforma Invoices';
     }
+    if (path.startsWith('/clients')) return 'Clients';
     return 'InvoSaaS';
   };
 

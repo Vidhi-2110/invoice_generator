@@ -4,7 +4,7 @@
  * JWT token is stored in localStorage to restore session on page refresh.
  */
 
-import { loginApi, registerApi, getMeApi } from '../../../api/authApi';
+import { loginApi, registerApi, getMeApi, updateProfileApi } from '../../../api/authApi';
 
 const STORAGE_TOKEN_KEY = 'invosaas_auth_token';
 
@@ -82,12 +82,13 @@ export const authService = {
   getToken: () => getStoredToken(),
 
   /**
-   * Update user profile — placeholder for future backend integration
+   * Update user profile — name, email, password, avatar
    */
   updateProfile: async (updatedFields) => {
-    // TODO: implement PUT /api/auth/profile
-    console.warn('updateProfile not yet wired to backend:', updatedFields);
-    return updatedFields;
+    const token = getStoredToken();
+    if (!token) throw new Error('Not authenticated.');
+    const data = await updateProfileApi(updatedFields, token);
+    return data.user;
   },
 };
 
