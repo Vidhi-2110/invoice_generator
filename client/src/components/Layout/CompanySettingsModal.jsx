@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+ import { useState, useRef, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
 import {
   FiX, FiCheck, FiCamera, FiTrash2, FiSettings,

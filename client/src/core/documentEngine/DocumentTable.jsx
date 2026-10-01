@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, StatusBadge } from '../components';
 import { formatCurrency, formatDate } from '../utils';
-import { FiEye, FiEdit2, FiTrash2, FiPrinter, FiFolderPlus, FiSearch, FiCalendar, FiX, FiFileText } from 'react-icons/fi';
+import { FiEye, FiTrash2, FiPrinter, FiFolderPlus, FiSearch, FiCalendar, FiX, FiFileText } from 'react-icons/fi';
 
 const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, onConvertToInvoice }) => {
   const navigate = useNavigate();
@@ -309,19 +309,7 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                         <FiEye size={16} />
                       </button>
 
-                      {!(isProforma ? item.status === 'Approved' : item.status === 'Paid') && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`${routePrefix}/${item.id}/edit`);
-                          }}
-                          className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-amber-600 transition-colors"
-                          title={`Edit ${config.title}`}
-                        >
-                          <FiEdit2 size={16} />
-                        </button>
-                      )}
+
 
                       <button
                         type="button"

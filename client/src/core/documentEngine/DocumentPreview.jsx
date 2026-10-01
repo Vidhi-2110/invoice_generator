@@ -243,6 +243,59 @@ const DocumentPreview = ({ item, config }) => {
 
             {/* Calculations */}
             <div className="w-full md:w-72 space-y-1.5 text-xs font-medium text-slate-700 print:space-y-1">
+
+              {/* ── Per-Proforma GST Breakdown (shown only when 2+ proformas) ── */}
+              {(() => {
+                // Group line items by their source proforma
+                const groups = {};
+                lineItemsList.forEach((li) => {
+                  const src = li._fromProforma;
+                  if (!src) return;
+                  if (!groups[src]) groups[src] = [];
+                  groups[src].push(li);
+                });
+                const groupKeys = Object.keys(groups);
+                if (groupKeys.length < 2) return null;
+
+                return (
+                  <div className="mb-2 pb-2 border-b border-dashed border-slate-200">
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-wider mb-1.5"
+                      style={{ color: `var(--brand-primary)` }}
+                    >
+                      GST Breakdown by Proforma
+                    </p>
+                    {groupKeys.map((pfNum) => {
+                      const pfItems = groups[pfNum];
+                      const pfSubtotal = pfItems.reduce((s, li) => s + (parseFloat(li.rate) || 0), 0);
+                      const pfGst = calculateTax(pfSubtotal, taxRate);
+                      const halfPct = Math.round(taxRate * 50);
+                      return (
+                        <div key={pfNum} className="mb-2 pl-2 border-l-2 print:mb-1" style={{ borderColor: `var(--brand-primary)` }}>
+                          <p className="font-bold text-slate-700 text-[10px] mb-0.5">{pfNum}</p>
+                          <div className="flex justify-between text-[10px] text-slate-500">
+                            <span>Subtotal</span>
+                            <span className="font-semibold text-slate-700">{formatCurrency(pfSubtotal, currencySymbol)}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] text-slate-500">
+                            <span>CGST ({halfPct}%)</span>
+                            <span className="font-semibold text-slate-700">{formatCurrency(pfGst / 2, currencySymbol)}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] text-slate-500">
+                            <span>SGST ({halfPct}%)</span>
+                            <span className="font-semibold text-slate-700">{formatCurrency(pfGst / 2, currencySymbol)}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] font-bold mt-0.5 pt-0.5 border-t border-slate-100">
+                            <span style={{ color: `var(--brand-primary)` }}>Total</span>
+                            <span className="text-slate-800">{formatCurrency(pfSubtotal + pfGst, currencySymbol)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
               {[
                 { label: 'Subtotal', value: formatCurrency(subtotal, currencySymbol) },
                 { label: `CGST(${Math.round(taxRate * 50)}%)`, value: formatCurrency(gst / 2, currencySymbol) },
