@@ -69,7 +69,8 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setIsLoading(true);
     try {
-      await authService.logout();
+      // Pass current user ID so authService can wipe their localStorage settings
+      await authService.logout(user?.id);
       setUser(null);
       setToken(null);
     } catch (err) {

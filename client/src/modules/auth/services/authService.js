@@ -7,6 +7,7 @@
 import { loginApi, registerApi, getMeApi, updateProfileApi } from '../../../api/authApi';
 
 const STORAGE_TOKEN_KEY = 'invosaas_auth_token';
+const BASE_SETTINGS_KEY = 'invosaas_company_settings';
 
 const getStoredToken = () => {
   try {
@@ -29,6 +30,17 @@ const clearToken = () => {
     localStorage.removeItem(STORAGE_TOKEN_KEY);
   } catch (err) {
     console.error('Failed to clear token:', err);
+  }
+};
+
+/** Removes the company settings that were saved for a specific user */
+const clearUserSettings = (userId) => {
+  try {
+    if (userId) {
+      localStorage.removeItem(`${BASE_SETTINGS_KEY}_${userId}`);
+    }
+  } catch (err) {
+    console.error('Failed to clear user settings:', err);
   }
 };
 
@@ -72,7 +84,10 @@ export const authService = {
   /**
    * Sign out — clears stored token
    */
-  logout: async () => {
+  logout: async (userId) => {
+    // Clear the per-user company settings before removing the token
+    // so we still know which key to clean up
+    if (userId) clearUserSettings(userId);
     clearToken();
   },
 

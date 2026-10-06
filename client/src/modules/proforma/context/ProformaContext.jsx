@@ -9,6 +9,7 @@ import {
   createProforma,
   updateProformaApi,
   deleteProformaApi,
+  sendProformaEmailApi,
 } from '../../../api/proformaApi';
 
 const ProformaContext = createContext();
@@ -145,6 +146,11 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
 
   const getProforma = (id) => proformaInvoices.find((pi) => pi.id === id);
 
+  // ── Send email for a proforma ──────────────────────────────────────────────
+  const sendEmail = async (id) => {
+    return sendProformaEmailApi(id);
+  };
+
   return (
     <ProformaContext.Provider
       value={{
@@ -155,6 +161,7 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
         updateProforma,
         deleteProforma,
         getProforma,
+        sendEmail,
         config,
         reload: loadProformas,
       }}

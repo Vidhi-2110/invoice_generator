@@ -45,3 +45,10 @@ export const deleteProformaApi = (id) =>
     method: 'DELETE',
     headers: getAuthHeaders(),
   }).then(handle);
+
+/** Send (or resend) the Proforma Invoice email for a given id */
+export const sendProformaEmailApi = (id) =>
+  fetch(`${BASE}/api/proformas/${id}/send-email`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  }).then(handle);

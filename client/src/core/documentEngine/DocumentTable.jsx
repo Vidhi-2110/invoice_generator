@@ -1,10 +1,40 @@
- import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, StatusBadge } from '../components';
 import { formatCurrency, formatDate } from '../utils';
-import { FiEye, FiTrash2, FiPrinter, FiFolderPlus, FiSearch, FiCalendar, FiX, FiFileText } from 'react-icons/fi';
+import { FiEye, FiTrash2, FiPrinter, FiFolderPlus, FiSearch, FiCalendar, FiX, FiFileText, FiMail, FiCheck, FiAlertCircle } from 'react-icons/fi';
+import { sendProformaEmailApi } from '../../api/proformaApi';
 
 const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, onConvertToInvoice }) => {
+  // ── Email send state ────────────────────────────────────────────────────────
+  const [emailSending, setEmailSending] = useState({}); // { [id]: true|false }
+  const [emailDone, setEmailDone]       = useState({}); // { [id]: true } for 3s check flash
+  const [toast, setToast]               = useState(null); // { type:'success'|'error', msg:string }
+
+  const showToast = useCallback((type, msg) => {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 5000);
+  }, []);
+
+  const handleSendEmail = useCallback(async (e, item) => {
+    e.stopPropagation();
+    if (emailSending[item.id]) return;
+
+    setEmailSending((prev) => ({ ...prev, [item.id]: true }));
+    try {
+      const result = await sendProformaEmailApi(item.id);
+      showToast('success', result.message || `Email sent to ${item.email}`);
+      setEmailDone((prev) => ({ ...prev, [item.id]: true }));
+      if (onUpdate) {
+        onUpdate(item.id, { ...item, emailStatus: 'sent', emailSentAt: new Date().toISOString() });
+      }
+      setTimeout(() => setEmailDone((prev) => ({ ...prev, [item.id]: false })), 3000);
+    } catch (err) {
+      showToast('error', err.message || 'Failed to send email');
+    } finally {
+      setEmailSending((prev) => ({ ...prev, [item.id]: false }));
+    }
+  }, [emailSending, showToast, onUpdate]);
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -297,6 +327,51 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                   {/* Actions */}
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
+
+                      {/* Send Email — Proforma only */}
+                      {isProforma && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleSendEmail(e, item)}
+                          disabled={emailSending[item.id]}
+                          className={`p-2 rounded-lg transition-all relative ${
+                            emailDone[item.id] || item.emailStatus === 'sent'
+                              ? 'text-emerald-600 hover:bg-emerald-50'
+                              : item.emailStatus === 'failed'
+                              ? 'text-amber-500 hover:bg-amber-50'
+                              : emailSending[item.id]
+                              ? 'bg-violet-50 text-violet-400 cursor-wait'
+                              : 'text-slate-400 hover:bg-violet-50 hover:text-violet-600'
+                          }`}
+                          title={
+                            emailDone[item.id]
+                              ? 'Email sent!'
+                              : item.emailStatus === 'sent'
+                              ? `Email sent${item.emailSentAt ? ` on ${formatDate(item.emailSentAt)}` : ''} to ${item.email} (Click to resend)`
+                              : item.emailStatus === 'failed'
+                              ? `Last email failed — Click to resend to ${item.email}`
+                              : `Send Proforma to ${item.email}`
+                          }
+                        >
+                          {emailSending[item.id] ? (
+                            <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 12a9 9 0 11-6.219-8.56" strokeLinecap="round"/>
+                            </svg>
+                          ) : emailDone[item.id] ? (
+                            <FiCheck size={16} />
+                          ) : (
+                            <span className="relative inline-block">
+                              <FiMail size={16} />
+                              {item.emailStatus === 'sent' && (
+                                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white" />
+                              )}
+                              {item.emailStatus === 'failed' && (
+                                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full ring-2 ring-white" />
+                              )}
+                            </span>
+                          )}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -365,6 +440,33 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
           </table>
         )}
       </div>
+
+      {/* ── Toast Notification ── */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-start gap-3 px-5 py-4 rounded-2xl shadow-2xl max-w-sm animate-fade-in border ${
+            toast.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
+          <span className="mt-0.5 shrink-0">
+            {toast.type === 'success' ? <FiCheck size={18} /> : <FiAlertCircle size={18} />}
+          </span>
+          <div className="flex-1">
+            <p className="text-xs font-bold">
+              {toast.type === 'success' ? '✅ Email Sent!' : '❌ Email Failed'}
+            </p>
+            <p className="text-xs mt-0.5 leading-relaxed opacity-80">{toast.msg}</p>
+          </div>
+          <button
+            onClick={() => setToast(null)}
+            className="p-0.5 rounded-lg hover:bg-black/10 transition-colors opacity-60 hover:opacity-100 shrink-0"
+          >
+            <FiX size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
