@@ -246,7 +246,8 @@ function generateProformaPdfBuffer(proforma, company = {}) {
         try {
           doc.image(logoSource, contentX, leftY, { width: 40, height: 40 });
           leftY += 46;
-        } catch (_) {
+        } catch (err) {
+          console.warn('[PdfService] Could not render logo image:', err.message);
           leftY += 10;
         }
       } else {
@@ -522,13 +523,17 @@ function generateProformaPdfBuffer(proforma, company = {}) {
       if (stampSource) {
         try {
           doc.image(stampSource, rightX - 118, signY - 8, { width: 48, height: 48 });
-        } catch (_) {}
+        } catch (err) {
+          console.warn('[PdfService] Could not render stamp image:', err.message);
+        }
       }
 
       if (sigSource) {
         try {
           doc.image(sigSource, rightX - 78, signY + 2, { width: 68, height: 34 });
-        } catch (_) {}
+        } catch (err) {
+          console.warn('[PdfService] Could not render signature image:', err.message);
+        }
       }
 
       signY += 40;

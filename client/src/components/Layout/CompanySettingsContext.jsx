@@ -3,6 +3,10 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import { loadFromStorage, saveToStorage } from '../../core/storage/localStorageAdapter';
 import { getPaletteById, applyPalette, DEFAULT_PALETTE_ID } from '../../core/theme/palettes';
 import { useAuth } from '../../modules/auth';
+import { updateCompanyAssetsApi } from '../../api/authApi';
+
+// Settings keys mirrored to the server so emailed PDFs use them
+const SERVER_ASSET_KEYS = ['logo', 'esign', 'stamp'];
 
 const BASE_STORAGE_KEY = 'invosaas_company_settings';
 
@@ -37,7 +41,7 @@ export const defaultSettings = {
 const CompanySettingsContext = createContext(null);
 
 export const CompanySettingsProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const userId = user?.id ?? null;
   const storageKey = getStorageKey(userId);
 
@@ -79,7 +83,17 @@ export const CompanySettingsProvider = ({ children }) => {
       saveToStorage(storageKey, next);
       return next;
     });
-  }, [storageKey]);
+
+    const assets = {};
+    SERVER_ASSET_KEYS.forEach((key) => {
+      if (updates[key] !== undefined) assets[key] = updates[key] || null;
+    });
+    if (token && Object.keys(assets).length > 0) {
+      updateCompanyAssetsApi(assets, token).catch((err) =>
+        console.warn('[CompanySettings] Could not sync logo/e-sign/stamp to server:', err.message)
+      );
+    }
+  }, [storageKey, token]);
 
   return (
     <CompanySettingsContext.Provider value={{ settings, updateSettings }}>

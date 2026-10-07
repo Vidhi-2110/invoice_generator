@@ -56,3 +56,19 @@ export const updateProfileApi = (payload, token) =>
     body: JSON.stringify(payload),
   }).then(handle);
 
+
+/**
+ * Save company logo, e-sign and stamp on the server (used in emailed PDFs)
+ * @param {object} payload - { logo?, esign?, stamp? } base64 data URLs or null
+ * @param {string} token
+ * @returns {{ success: boolean }}
+ */
+export const updateCompanyAssetsApi = (payload, token) =>
+  fetch(`${BASE}/api/auth/company-assets`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  }).then(handle);

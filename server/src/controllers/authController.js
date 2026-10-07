@@ -151,5 +151,41 @@ const updateProfile = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe, updateProfile };
+// ─── PUT /api/auth/company-assets ────────────────────────────────────────────
+// Protected — saves logo, e-sign and stamp (base64 data URLs) used in emailed PDFs
+const ASSET_KEYS = ['logo', 'esign', 'stamp'];
+
+const updateCompanyAssets = async (req, res) => {
+  const updates = {};
+
+  for (const key of ASSET_KEYS) {
+    if (req.body[key] === undefined) continue;
+    const val = req.body[key];
+    if (val !== null && !(typeof val === 'string' && val.startsWith('data:image'))) {
+      return res.status(400).json({ error: `Invalid ${key} image.` });
+    }
+    updates[`companyAssets.${key}`] = val;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No changes provided.' });
+  }
+
+  try {
+    const col = getCollection(req.app.locals.dbClient);
+    const { ObjectId } = require('mongodb');
+    const result = await col.updateOne({ _id: new ObjectId(req.user.id) }, { $set: updates });
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[AuthController] updateCompanyAssets:', err.message);
+    res.status(500).json({ error: 'Failed to save company assets.' });
+  }
+};
+
+module.exports = { register, login, getMe, updateProfile, updateCompanyAssets };
 

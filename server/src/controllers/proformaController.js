@@ -2,6 +2,7 @@ const { ObjectId } = require('mongodb');
 const { getCollection, buildDocument, normalizeDoc } = require('../models/Proforma');
 const { getCollection: getClientCollection } = require('../models/Client');
 const { sendProformaEmail } = require('../services/emailService');
+const { buildCompanyFromUser } = require('../models/User');
 
 // ─── GET /api/proformas ──────────────────────────────────────────────────────
 const getAllProformas = async (req, res) => {
@@ -36,17 +37,7 @@ const createProforma = async (req, res) => {
           const userCol = getUserCol(req.app.locals.dbClient);
           const userDoc = await userCol.findOne({ _id: new ObjectId(req.user.id) });
           if (userDoc) {
-            company = {
-              name    : userDoc.company || userDoc.name || '',
-              email   : userDoc.email   || '',
-              phone   : userDoc.phone   || '',
-              address : userDoc.address || '',
-              bankName: userDoc.bankName || '',
-              accountName: userDoc.accountName || userDoc.company || userDoc.name || '',
-              accountNumber: userDoc.accountNumber || '',
-              ifscCode: userDoc.ifscCode || '',
-              branchName: userDoc.branchName || '',
-            };
+            company = buildCompanyFromUser(userDoc);
           }
         }
       } catch (lookupErr) {
@@ -167,17 +158,7 @@ const sendProformaEmailById = async (req, res) => {
         const userCol = getUserCol(req.app.locals.dbClient);
         const userDoc = await userCol.findOne({ _id: new ObjectId(req.user.id) });
         if (userDoc) {
-          company = {
-            name    : userDoc.company || userDoc.name || '',
-            email   : userDoc.email   || '',
-            phone   : userDoc.phone   || '',
-            address : userDoc.address || '',
-            bankName: userDoc.bankName || '',
-            accountName: userDoc.accountName || userDoc.company || userDoc.name || '',
-            accountNumber: userDoc.accountNumber || '',
-            ifscCode: userDoc.ifscCode || '',
-            branchName: userDoc.branchName || '',
-          };
+          company = buildCompanyFromUser(userDoc);
         }
       }
     } catch (lookupErr) {
@@ -244,17 +225,7 @@ const downloadProformaPdf = async (req, res) => {
         const userCol = getUserCol(req.app.locals.dbClient);
         const userDoc = await userCol.findOne({ _id: new ObjectId(doc.userId) });
         if (userDoc) {
-          company = {
-            name: userDoc.company || userDoc.name || '',
-            email: userDoc.email || '',
-            phone: userDoc.phone || '',
-            address: userDoc.address || '',
-            bankName: userDoc.bankName || '',
-            accountName: userDoc.accountName || userDoc.company || userDoc.name || '',
-            accountNumber: userDoc.accountNumber || '',
-            ifscCode: userDoc.ifscCode || '',
-            branchName: userDoc.branchName || '',
-          };
+          company = buildCompanyFromUser(userDoc);
         }
       } catch (_) {}
     }
