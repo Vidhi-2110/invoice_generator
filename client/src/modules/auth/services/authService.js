@@ -84,12 +84,16 @@ export const authService = {
   /**
    * Sign out — clears stored token
    */
-  logout: async (userId) => {
-    // Clear the per-user company settings before removing the token
-    // so we still know which key to clean up
-    if (userId) clearUserSettings(userId);
+  logout: async () => {
+    // Retain user company settings in localStorage so they are restored on next login.
+    // Only the authentication session token is removed.
     clearToken();
   },
+
+  /**
+   * Explicitly remove the saved company settings for a given user ID
+   */
+  clearUserSettings: (userId) => clearUserSettings(userId),
 
   /**
    * Returns stored JWT token (for attaching to API requests)

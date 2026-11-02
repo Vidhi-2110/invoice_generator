@@ -1,12 +1,16 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { loadFromStorage, saveToStorage } from '../../core/storage/localStorageAdapter';
 import { getPaletteById, applyPalette, DEFAULT_PALETTE_ID } from '../../core/theme/palettes';
 import { useAuth } from '../../modules/auth';
 import { updateCompanyAssetsApi } from '../../api/authApi';
 
 // Settings keys mirrored to the server so emailed PDFs use them
-const SERVER_ASSET_KEYS = ['logo', 'esign', 'stamp'];
+const SERVER_ASSET_KEYS = [
+  'logo', 'esign', 'stamp',
+  'companyName', 'phone', 'email', 'address',
+  'bankName', 'ifscCode', 'branchName', 'accountNumber', 'accountName',
+];
 
 const BASE_STORAGE_KEY = 'invosaas_company_settings';
 
@@ -45,32 +49,19 @@ export const CompanySettingsProvider = ({ children }) => {
   const userId = user?.id ?? null;
   const storageKey = getStorageKey(userId);
 
-  // Track previous userId to detect account switches
-  const prevUserIdRef = useRef(userId);
-
+  const [prevUserId, setPrevUserId] = useState(userId);
   const [settings, setSettings] = useState(() => {
     const loaded = loadFromStorage(storageKey, defaultSettings);
     applyPalette(getPaletteById(loaded.colorPalette ?? DEFAULT_PALETTE_ID));
     return loaded;
   });
 
-  // ── React to user account changes (login/logout/switch) ───────────────────
-  useEffect(() => {
-    if (prevUserIdRef.current === userId) return;
-    prevUserIdRef.current = userId;
-
-    if (!userId) {
-      // Logged out — wipe to defaults so next user sees a clean slate
-      applyPalette(getPaletteById(DEFAULT_PALETTE_ID));
-      setSettings(defaultSettings);
-      return;
-    }
-
-    // Different user logged in — load their own saved settings
-    const loaded = loadFromStorage(getStorageKey(userId), defaultSettings);
-    applyPalette(getPaletteById(loaded.colorPalette ?? DEFAULT_PALETTE_ID));
+  // Synchronize state during render when user account changes (login/logout/switch)
+  if (prevUserId !== userId) {
+    setPrevUserId(userId);
+    const loaded = userId ? loadFromStorage(getStorageKey(userId), defaultSettings) : defaultSettings;
     setSettings(loaded);
-  }, [userId]);
+  }
 
   // Re-apply palette whenever it changes within a session
   useEffect(() => {

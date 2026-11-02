@@ -23,7 +23,8 @@ const ConvertModal = ({ proforma, invoiceConfig, onSave, onClose }) => {
       : [{ rate: proforma.rate || 0 }];
   const subtotal = lineItemsList.reduce((s, l) => s + (parseFloat(l.rate) || 0), 0);
   const gst = subtotal * 0.18;
-  const total = subtotal + gst;
+  const adjustment = parseFloat(proforma.adjustment) || 0;
+  const total = subtotal + gst + adjustment;
   const currency = invoiceConfig?.currency || '₹';
 
   const handleSave = () => {
@@ -191,6 +192,7 @@ const ProformaPage = () => {
       referenceNo,
       rate: convertingProforma.rate,
       lineItems: convertingProforma.lineItems,
+      adjustment: convertingProforma.adjustment || '0',
       status: 'Pending',
       sourceProformaNumber: convertingProforma.invoiceNumber,
     };

@@ -73,8 +73,30 @@ export const ClientProvider = ({ children, config = defaultClientConfig }) => {
   }, [storageKey]);
 
   useEffect(() => {
-    loadClients();
-  }, [loadClients, user?.id]);
+    let ignore = false;
+    if (!authService.getToken()) {
+      return;
+    }
+    fetchClients()
+      .then((data) => {
+        if (!ignore) {
+          setClients(data);
+          saveToStorage(storageKey, data);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          console.warn('⚠️ Could not reach backend, loading from localStorage:', err.message);
+          setError(err.message);
+          setClients(loadFromStorage(storageKey));
+          setIsLoading(false);
+        }
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [storageKey, user?.id]);
 
   // ── Add client (auto generates CLT-0001, CLT-0002 unique ID) ───────────────
   const addClient = async (clientData) => {
@@ -141,7 +163,8 @@ export const ClientProvider = ({ children, config = defaultClientConfig }) => {
     });
   };
 
-  const getClient = (id) => clients.find((c) => c.id === id);
+  const getClient = (id) =>
+    clients.find((c) => c.id === id || c.clientId === id || c.invoiceNumber === id);
 
   return (
     <ClientContext.Provider

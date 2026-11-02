@@ -1,9 +1,9 @@
 export const formatCurrency = (value, currencySymbol = '₹') => {
-  const formatted = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  const num = typeof value === 'number' ? value : parseFloat(value) || 0;
+  const formattedNumber = num.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value || 0);
+  });
 
-  return formatted.replace('INR', currencySymbol);
+  return `${currencySymbol}${formattedNumber}`;
 };

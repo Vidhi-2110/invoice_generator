@@ -1,10 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FiX, FiUser, FiMail, FiPhone, FiMapPin, FiFileText, FiSave, FiCheckCircle } from 'react-icons/fi';
 import { generateNextNumber } from '../../../core/utils';
 
-const ClientFormModal = ({ isOpen, onClose, onSave, clientToEdit = null, existingClients = [] }) => {
-  const [formData, setFormData] = useState({
-    clientId: '',
+const buildInitialFormData = (clientToEdit, existingClients) => {
+  if (clientToEdit) {
+    return {
+      clientId: clientToEdit.clientId || clientToEdit.invoiceNumber || '',
+      name: clientToEdit.name || '',
+      email: clientToEdit.email || '',
+      phone: clientToEdit.phone || '',
+      address: clientToEdit.address || '',
+      gstin: clientToEdit.gstin || '',
+      status: clientToEdit.status || 'Active',
+      notes: clientToEdit.notes || '',
+    };
+  }
+  return {
+    clientId: generateNextNumber(existingClients, 'CLT-'),
     name: '',
     email: '',
     phone: '',
@@ -12,37 +24,20 @@ const ClientFormModal = ({ isOpen, onClose, onSave, clientToEdit = null, existin
     gstin: '',
     status: 'Active',
     notes: '',
-  });
+  };
+};
 
+const ClientFormModal = ({ isOpen, onClose, onSave, clientToEdit = null, existingClients = [] }) => {
+  const [prevSyncKey, setPrevSyncKey] = useState(() => `${isOpen}-${clientToEdit?.id || 'new'}`);
+  const [formData, setFormData] = useState(() => buildInitialFormData(clientToEdit, existingClients));
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    if (clientToEdit) {
-      setFormData({
-        clientId: clientToEdit.clientId || clientToEdit.invoiceNumber || '',
-        name: clientToEdit.name || '',
-        email: clientToEdit.email || '',
-        phone: clientToEdit.phone || '',
-        address: clientToEdit.address || '',
-        gstin: clientToEdit.gstin || '',
-        status: clientToEdit.status || 'Active',
-        notes: clientToEdit.notes || '',
-      });
-    } else {
-      const nextId = generateNextNumber(existingClients, 'CLT');
-      setFormData({
-        clientId: nextId,
-        name: '',
-        email: '',
-        phone: '',
-        address: '',
-        gstin: '',
-        status: 'Active',
-        notes: '',
-      });
-    }
+  const syncKey = `${isOpen}-${clientToEdit?.id || 'new'}`;
+  if (prevSyncKey !== syncKey) {
+    setPrevSyncKey(syncKey);
+    setFormData(buildInitialFormData(clientToEdit, existingClients));
     setSaved(false);
-  }, [clientToEdit, existingClients, isOpen]);
+  }
 
   if (!isOpen) return null;
 

@@ -22,10 +22,6 @@ const getCroppedImg = (imageSrc, pixelCrop, rotation = 0, outputSize = 400) => {
       ctx.rotate((rotation * Math.PI) / 180);
       ctx.translate(-cx, -cy);
 
-      // Scale from source crop to output canvas
-      const scaleX = outputSize / pixelCrop.width;
-      const scaleY = outputSize / pixelCrop.height;
-
       ctx.drawImage(
         image,
         pixelCrop.x,

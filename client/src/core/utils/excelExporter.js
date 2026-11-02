@@ -91,7 +91,8 @@ const generateCSV = (items = [], isProforma = false) => {
     ) || (parseFloat(item.rate) || 0);
 
     const gst = subtotal * 0.18;
-    const total = subtotal + gst;
+    const adjustment = parseFloat(item.adjustment) || 0;
+    const total = subtotal + gst + adjustment;
 
     const itemsSummaryStr = lineItems.length > 0
       ? lineItems.map((l) => `${l.description || 'Item'} (${l.hours || l.qty || 1}x ₹${l.rate || 0})`).join(' | ')
@@ -153,7 +154,8 @@ const generateCombinedCSV = (invoices = [], proformas = []) => {
       ) || (parseFloat(item.rate) || 0);
 
       const gst = subtotal * 0.18;
-      const total = subtotal + gst;
+      const adjustment = parseFloat(item.adjustment) || 0;
+      const total = subtotal + gst + adjustment;
 
       const itemsSummaryStr = lineItems.length > 0
         ? lineItems.map((l) => `${l.description || 'Item'} (${l.hours || l.qty || 1}x ₹${l.rate || 0})`).join(' | ')

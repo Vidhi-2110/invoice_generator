@@ -6,6 +6,29 @@ import {
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import ImageCropper from './ImageCropper';
+const getInitial = (name) => (name ? name.charAt(0).toUpperCase() : 'U');
+
+const AvatarDisplay = ({ user, avatarPreview, size = 'sm', className = '' }) => {
+  const avatarSrc = avatarPreview ?? user?.avatar ?? null;
+  const sizeClasses = size === 'lg'
+    ? 'w-20 h-20 rounded-2xl text-3xl font-black'
+    : 'w-10 h-10 rounded-xl text-base font-bold';
+
+  if (avatarSrc) {
+    return (
+      <img
+        src={avatarSrc}
+        alt={user?.name || 'User'}
+        className={`${sizeClasses} object-cover border-2 border-indigo-200 shadow-sm ${className}`}
+      />
+    );
+  }
+  return (
+    <div className={`${sizeClasses} bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border border-indigo-200 flex items-center justify-center text-white shadow-sm shadow-indigo-500/20 ${className}`}>
+      {getInitial(user?.name)}
+    </div>
+  );
+};
 
 export const UserDropdown = () => {
   const { user, logout, updateProfile } = useAuth();
@@ -39,8 +62,6 @@ export const UserDropdown = () => {
   }, []);
 
   if (!user) return null;
-
-  const getInitial = (name) => (name ? name.charAt(0).toUpperCase() : 'U');
 
   const handleLogout = async () => {
     setIsOpen(false);
@@ -137,28 +158,7 @@ export const UserDropdown = () => {
     }
   };
 
-  // ── Avatar display helper ──────────────────────────────────────────────────
-  const AvatarDisplay = ({ size = 'sm', className = '' }) => {
-    const avatarSrc = avatarPreview ?? user.avatar ?? null;
-    const sizeClasses = size === 'lg'
-      ? 'w-20 h-20 rounded-2xl text-3xl font-black'
-      : 'w-10 h-10 rounded-xl text-base font-bold';
 
-    if (avatarSrc) {
-      return (
-        <img
-          src={avatarSrc}
-          alt={user.name}
-          className={`${sizeClasses} object-cover border-2 border-indigo-200 shadow-sm ${className}`}
-        />
-      );
-    }
-    return (
-      <div className={`${sizeClasses} bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 border border-indigo-200 flex items-center justify-center text-white shadow-sm shadow-indigo-500/20 ${className}`}>
-        {getInitial(user.name)}
-      </div>
-    );
-  };
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -176,7 +176,7 @@ export const UserDropdown = () => {
         </div>
 
         <div className="relative">
-          <AvatarDisplay size="sm" />
+          <AvatarDisplay user={user} avatarPreview={avatarPreview} size="sm" />
           <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white" />
         </div>
 

@@ -46,7 +46,8 @@ function buildProformaEmailHtml(proforma, company = {}) {
   );
   const gstRate  = 0.18;
   const gstAmt   = subtotal * gstRate;
-  const total    = subtotal + gstAmt;
+  const adjustment = parseFloat(proforma.adjustment) || 0;
+  const total    = subtotal + gstAmt + adjustment;
 
   const fmt = (n) =>
     Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -193,6 +194,15 @@ function buildProformaEmailHtml(proforma, company = {}) {
           </td>
         </tr>
 
+        <!-- ── Download Button CTA ── -->
+        <tr>
+          <td style="padding:16px 36px 0;">
+            <a href="${downloadUrl}" target="_blank" style="display:inline-block;padding:11px 22px;background:#4f46e5;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;border-radius:8px;box-shadow:0 3px 6px -1px rgba(79, 70, 229, 0.25);">
+              &#128196; Download Proforma PDF
+            </a>
+          </td>
+        </tr>
+
         <!-- ── Bill To Card ── -->
         <tr>
           <td style="padding:22px 36px 0;">
@@ -240,6 +250,11 @@ function buildProformaEmailHtml(proforma, company = {}) {
                 <td style="padding:6px 0;font-size:13px;color:#64748b;">GST (18%)</td>
                 <td style="padding:6px 0;font-size:13px;color:#0f172a;font-weight:600;text-align:right;">${currency}${fmt(gstAmt)}</td>
               </tr>
+              ${adjustment !== 0 ? `
+              <tr>
+                <td style="padding:6px 0;font-size:13px;color:#64748b;">Adjustment</td>
+                <td style="padding:6px 0;font-size:13px;color:${adjustment < 0 ? '#10b981' : '#0f172a'};font-weight:600;text-align:right;">${adjustment > 0 ? '+' : ''}${currency}${fmt(adjustment)}</td>
+              </tr>` : ''}
               <tr>
                 <td colspan="2" style="padding:4px 0;"><hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0;"/></td>
               </tr>
@@ -341,7 +356,8 @@ function buildProformaEmailText(proforma, company = {}) {
     0
   );
   const gstAmt = subtotal * 0.18;
-  const total  = subtotal + gstAmt;
+  const adjustment = parseFloat(proforma.adjustment) || 0;
+  const total  = subtotal + gstAmt + adjustment;
   const fmt = (n) => Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
   const companyName    = company.name    || process.env.COMPANY_NAME    || 'Futentia Solutions';
@@ -383,7 +399,10 @@ function buildProformaEmailText(proforma, company = {}) {
     ``,
     `Subtotal : ${currency}${fmt(subtotal)}`,
     `GST 18%  : ${currency}${fmt(gstAmt)}`,
+    adjustment !== 0 ? `Adjustment: ${adjustment > 0 ? '+' : ''}${currency}${fmt(adjustment)}` : null,
     `TOTAL    : ${currency}${fmt(total)}`,
+    ``,
+    `Download Link: ${downloadUrl}`,
     ``,
     `BANK & PAYMENT DETAILS`,
     `----------------------`,

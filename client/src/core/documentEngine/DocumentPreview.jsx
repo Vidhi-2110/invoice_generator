@@ -4,7 +4,6 @@ import { Button } from '../components';
 import { calculateTax, calculateGrandTotal, formatCurrency, formatNumericDate, numberToWords } from '../utils';
 import { FiArrowLeft, FiPrinter } from 'react-icons/fi';
 import { useCompanySettings } from '../../components/Layout/CompanySettingsContext';
-import { getPaletteById } from '../../core/theme/palettes';
 
 /* ─── Inline style helpers so CSS vars work in print media too ── */
 const brandStyle = (prop, extra = {}) => ({
@@ -25,9 +24,6 @@ const DocumentPreview = ({ item, config }) => {
   const [searchParams] = useSearchParams();
   const shouldPrint = searchParams.get('print') === 'true';
   const { settings } = useCompanySettings();
-
-  // Resolved palette for fallback hex (CSS vars work on screen; hex used as data-uri fallback)
-  const palette = getPaletteById(settings.colorPalette || 'indigo');
 
   const isProforma = config.title?.toLowerCase().includes('proforma');
   const routePrefix = isProforma ? '/proforma-invoice' : '/invoice';

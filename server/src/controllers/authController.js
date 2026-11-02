@@ -152,19 +152,32 @@ const updateProfile = async (req, res) => {
 };
 
 // ─── PUT /api/auth/company-assets ────────────────────────────────────────────
-// Protected — saves logo, e-sign and stamp (base64 data URLs) used in emailed PDFs
-const ASSET_KEYS = ['logo', 'esign', 'stamp'];
+// Protected — saves branding assets and company/bank details used in emailed PDFs
+const IMAGE_KEYS = ['logo', 'esign', 'stamp'];
+const TEXT_KEYS = [
+  'companyName', 'phone', 'email', 'address',
+  'bankName', 'ifscCode', 'branchName', 'accountNumber', 'accountName',
+];
 
 const updateCompanyAssets = async (req, res) => {
   const updates = {};
 
-  for (const key of ASSET_KEYS) {
+  for (const key of IMAGE_KEYS) {
     if (req.body[key] === undefined) continue;
     const val = req.body[key];
     if (val !== null && !(typeof val === 'string' && val.startsWith('data:image'))) {
       return res.status(400).json({ error: `Invalid ${key} image.` });
     }
     updates[`companyAssets.${key}`] = val;
+  }
+
+  for (const key of TEXT_KEYS) {
+    if (req.body[key] === undefined) continue;
+    const val = req.body[key];
+    if (val !== null && typeof val !== 'string') {
+      return res.status(400).json({ error: `Invalid ${key} field.` });
+    }
+    updates[`companyAssets.${key}`] = val ? String(val).trim() : '';
   }
 
   if (Object.keys(updates).length === 0) {

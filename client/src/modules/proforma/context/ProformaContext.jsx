@@ -76,8 +76,30 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
   }, [storageKey]);
 
   useEffect(() => {
-    loadProformas();
-  }, [loadProformas, user?.id]);
+    let ignore = false;
+    if (!authService.getToken()) {
+      return;
+    }
+    fetchProformas()
+      .then((data) => {
+        if (!ignore) {
+          setProformaInvoices(data);
+          saveToStorage(storageKey, data);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          console.warn('⚠️ Could not reach backend, loading from localStorage:', err.message);
+          setError(err.message);
+          setProformaInvoices(loadFromStorage(storageKey));
+          setIsLoading(false);
+        }
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [storageKey, user?.id]);
 
   // ── Add proforma ──────────────────────────────────────────────────────────
   const addProforma = async (proformaData) => {
@@ -144,7 +166,8 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
     });
   };
 
-  const getProforma = (id) => proformaInvoices.find((pi) => pi.id === id);
+  const getProforma = (id) =>
+    proformaInvoices.find((pi) => pi.id === id || pi.proformaNumber === id || pi.invoiceNumber === id);
 
   // ── Send email for a proforma ──────────────────────────────────────────────
   const sendEmail = async (id) => {

@@ -73,8 +73,30 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
   }, [storageKey]);
 
   useEffect(() => {
-    loadInvoices();
-  }, [loadInvoices, user?.id]);
+    let ignore = false;
+    if (!authService.getToken()) {
+      return;
+    }
+    fetchInvoices()
+      .then((data) => {
+        if (!ignore) {
+          setInvoices(data);
+          saveToStorage(storageKey, data);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          console.warn('⚠️ Could not reach backend, loading user data from localStorage:', err.message);
+          setError(err.message);
+          setInvoices(loadFromStorage(storageKey));
+          setIsLoading(false);
+        }
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [storageKey, user?.id]);
 
   // ── Add invoice ───────────────────────────────────────────────────────────
   const addInvoice = async (invoiceData) => {
@@ -141,7 +163,7 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
     });
   };
 
-  const getInvoice = (id) => invoices.find((inv) => inv.id === id);
+  const getInvoice = (id) => invoices.find((inv) => inv.id === id || inv.invoiceNumber === id);
 
   return (
     <InvoiceContext.Provider

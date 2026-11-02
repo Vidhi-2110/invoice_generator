@@ -5,7 +5,7 @@ import ClientFormModal from '../components/ClientFormModal';
 import { FiPlus, FiUsers, FiCheckCircle, FiClock } from 'react-icons/fi';
 
 const ClientPage = () => {
-  const { clients, addClient, updateClient, deleteClient, config } = useClients();
+  const { clients, addClient, updateClient, deleteClient } = useClients();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clientToEdit, setClientToEdit] = useState(null);
 

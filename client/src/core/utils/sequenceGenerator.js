@@ -7,7 +7,7 @@ export const generateNextNumber = (items, prefix = 'INV-') => {
   const regex = new RegExp(`${escapedPrefix}(\\d+)`);
 
   const numbers = items.map((item) => {
-    const numStr = item.invoiceNumber || item.proformaNumber || '';
+    const numStr = item.clientId || item.clientNumber || item.invoiceNumber || item.proformaNumber || '';
     const match = String(numStr).match(regex);
     return match ? parseInt(match[1], 10) : 0;
   });

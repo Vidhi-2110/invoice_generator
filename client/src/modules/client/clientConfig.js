@@ -1,6 +1,6 @@
 const defaultClientConfig = {
   title: 'Client',
-  numberPrefix: 'CLT',
+  numberPrefix: 'CLT-',
   localStorageKey: 'invoice_app_clients',
   routePrefix: '/clients',
 };

@@ -43,7 +43,6 @@ const DashboardPage = ({ invoices = [], proformaInvoices = [], config = defaultD
   const pendingProformas     = proformaInvoices.filter((pi) => pi.status !== 'Approved');
 
   const paidInvoicesAmt      = paidInvoices.reduce((s, inv) => s + getItemAmount(inv), 0);
-  const pendingInvoicesAmt   = pendingInvoices.reduce((s, inv) => s + getItemAmount(inv), 0);
 
   const approvedProformasAmt = approvedProformas.reduce((s, pi) => s + getItemAmount(pi), 0);
   const pendingProformasAmt  = pendingProformas.reduce((s, pi) => s + getItemAmount(pi), 0);
