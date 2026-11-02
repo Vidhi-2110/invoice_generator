@@ -4,4 +4,5 @@ export * from './dateUtils';
 export * from './sequenceGenerator';
 export * from './numberToWords';
 export * from './excelExporter';
+export * from './lineItems';
 

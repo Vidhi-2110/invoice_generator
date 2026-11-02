@@ -118,9 +118,13 @@ interface Invoice {
   description?: string;      // Summary description of work
   rate?: number;             // Legacy single-item rate
   lineItems?: Array<{        // Itemized breakdown
-    description: string;
+    sacId?: string;          // _id of the sac_codes master record
+    sacCode?: string;        // SAC code at the time of saving, e.g. "998314"
+    sacDescription?: string; // Master description at the time of saving
+    description: string;     // Text printed on the invoice
+    qty?: number;            // Missing on older records, which count as 1
     rate: number;
-    quantity?: number;
+    amount?: number;         // qty × rate
   }>;
   status: 'Paid' | 'Pending' | 'Overdue' | 'Draft';
   createdAt: string;         // ISO timestamp

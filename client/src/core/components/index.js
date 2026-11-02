@@ -4,4 +4,5 @@ export { default as TextAreaField } from './TextAreaField';
 export { default as StatusBadge } from './StatusBadge';
 export { default as Card } from './Card';
 export { default as MultiSelectDropdown } from './MultiSelectDropdown';
+export { default as SearchableSelect } from './SearchableSelect';
 

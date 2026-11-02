@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components';
-import { calculateTax, calculateGrandTotal, formatCurrency, formatNumericDate, numberToWords } from '../utils';
+import { calculateTax, calculateGrandTotal, formatCurrency, formatNumericDate, numberToWords, getLineQty, getLineAmount, getLinesSubtotal } from '../utils';
 import { FiArrowLeft, FiPrinter } from 'react-icons/fi';
 import { useCompanySettings } from '../../components/Layout/CompanySettingsContext';
 
@@ -62,7 +62,7 @@ const DocumentPreview = ({ item, config }) => {
     ? item.lineItems
     : [{ description: item.description || '', rate: item.rate || 0 }];
 
-  const subtotal = lineItemsList.reduce((sum, l) => sum + (parseFloat(l.rate) || 0), 0);
+  const subtotal = getLinesSubtotal(lineItemsList);
   const taxRate = config.taxRate ?? 0.18;
   const gst = calculateTax(subtotal, taxRate);
   const currencySymbol = config.currency || '₹';
@@ -205,10 +205,12 @@ const DocumentPreview = ({ item, config }) => {
                   className="border-b border-slate-200 text-xs font-bold uppercase tracking-wider"
                   style={{ color: `var(--brand-primary)` }}
                 >
-                  <th className="py-2.5 px-3 print:py-1.5 w-16">Sr. No.</th>
-                  <th className="py-2.5 px-3 print:py-1.5">Description</th>
-                  <th className="py-2.5 px-3 print:py-1.5 text-right w-36">Rate</th>
-                  <th className="py-2.5 px-3 print:py-1.5 text-right w-36">Amount</th>
+                  <th className="py-2.5 px-3 print:py-1.5 w-16 whitespace-nowrap">Sr. No.</th>
+                  <th className="py-2.5 px-3 print:py-1.5">Description of Service</th>
+                  <th className="py-2.5 px-3 print:py-1.5 w-24 whitespace-nowrap">SAC Code</th>
+                  <th className="py-2.5 px-3 print:py-1.5 text-right w-14">Qty</th>
+                  <th className="py-2.5 px-3 print:py-1.5 text-right w-28">Rate</th>
+                  <th className="py-2.5 px-3 print:py-1.5 text-right w-28">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
@@ -216,11 +218,13 @@ const DocumentPreview = ({ item, config }) => {
                   <tr key={idx} className={idx % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'}>
                     <td className="py-2.5 px-3 print:py-1.5 text-slate-600 font-semibold">{idx + 1}.</td>
                     <td className="py-2.5 px-3 print:py-1.5 whitespace-pre-wrap font-medium">{line.description}</td>
+                    <td className="py-2.5 px-3 print:py-1.5 text-slate-700">{line.sacCode || '—'}</td>
+                    <td className="py-2.5 px-3 print:py-1.5 text-right text-slate-700">{getLineQty(line)}</td>
                     <td className="py-2.5 px-3 print:py-1.5 text-right text-slate-700">
                       {formatCurrency(line.rate, currencySymbol)}
                     </td>
                     <td className="py-2.5 px-3 print:py-1.5 text-right font-bold text-slate-900">
-                      {formatCurrency(line.rate, currencySymbol)}
+                      {formatCurrency(getLineAmount(line), currencySymbol)}
                     </td>
                   </tr>
                 ))}
@@ -263,7 +267,7 @@ const DocumentPreview = ({ item, config }) => {
                     </p>
                     {groupKeys.map((pfNum) => {
                       const pfItems = groups[pfNum];
-                      const pfSubtotal = pfItems.reduce((s, li) => s + (parseFloat(li.rate) || 0), 0);
+                      const pfSubtotal = getLinesSubtotal(pfItems);
                       const pfGst = calculateTax(pfSubtotal, taxRate);
                       const halfPct = Math.round(taxRate * 50);
                       return (

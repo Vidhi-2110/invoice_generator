@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const { getLineQty, getLineAmount, getLinesSubtotal } = require('../utils/lineItems');
 
 let _transporter = null;
 let _cachedUser = null;
@@ -40,10 +41,7 @@ function getTransporter() {
  */
 function buildProformaEmailHtml(proforma, company = {}) {
   const currency = '₹';
-  const subtotal = (proforma.lineItems || []).reduce(
-    (s, li) => s + (parseFloat(li.rate) || 0),
-    0
-  );
+  const subtotal = getLinesSubtotal(proforma.lineItems);
   const gstRate  = 0.18;
   const gstAmt   = subtotal * gstRate;
   const adjustment = parseFloat(proforma.adjustment) || 0;
@@ -96,8 +94,15 @@ function buildProformaEmailHtml(proforma, company = {}) {
     .map(
       (li, idx) => `
       <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'}">
-        <td style="padding:14px 18px;font-size:13px;color:#1e293b;font-weight:500;border-bottom:1px solid #edf2f7;line-height:1.5;">${li.description || '—'}</td>
-        <td style="padding:14px 18px;font-size:13px;color:#0f172a;font-weight:700;text-align:right;border-bottom:1px solid #edf2f7;white-space:nowrap;">${currency}${fmt(li.rate || 0)}</td>
+        <td style="padding:14px 18px;font-size:13px;color:#1e293b;font-weight:500;border-bottom:1px solid #edf2f7;line-height:1.5;">${li.description || '—'}${
+          li.sacCode || getLineQty(li) !== 1
+            ? `<div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">${[
+                li.sacCode ? `SAC: ${li.sacCode}` : '',
+                getLineQty(li) !== 1 ? `Qty: ${getLineQty(li)} × ${currency}${fmt(li.rate || 0)}` : '',
+              ].filter(Boolean).join(' · ')}</div>`
+            : ''
+        }</td>
+        <td style="padding:14px 18px;font-size:13px;color:#0f172a;font-weight:700;text-align:right;border-bottom:1px solid #edf2f7;white-space:nowrap;">${currency}${fmt(getLineAmount(li))}</td>
       </tr>`
     )
     .join('');
@@ -351,10 +356,7 @@ function buildProformaEmailHtml(proforma, company = {}) {
 // ─── Plain-text fallback ──────────────────────────────────────────────────────
 function buildProformaEmailText(proforma, company = {}) {
   const currency = '₹';
-  const subtotal = (proforma.lineItems || []).reduce(
-    (s, li) => s + (parseFloat(li.rate) || 0),
-    0
-  );
+  const subtotal = getLinesSubtotal(proforma.lineItems);
   const gstAmt = subtotal * 0.18;
   const adjustment = parseFloat(proforma.adjustment) || 0;
   const total  = subtotal + gstAmt + adjustment;
@@ -394,7 +396,7 @@ function buildProformaEmailText(proforma, company = {}) {
     `LINE ITEMS`,
     `----------`,
     ...(proforma.lineItems || []).map(
-      (li, i) => `${i + 1}. ${li.description || '(no description)'}  —  ${currency}${fmt(li.rate || 0)}`
+      (li, i) => `${i + 1}. ${li.description || '(no description)'}${li.sacCode ? ` [SAC: ${li.sacCode}]` : ''}${getLineQty(li) !== 1 ? ` (Qty: ${getLineQty(li)} x ${currency}${fmt(li.rate || 0)})` : ''}  —  ${currency}${fmt(getLineAmount(li))}`
     ),
     ``,
     `Subtotal : ${currency}${fmt(subtotal)}`,

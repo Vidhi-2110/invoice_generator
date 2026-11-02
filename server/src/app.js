@@ -5,6 +5,7 @@ const authRoutes = require('./routes/authRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
 const proformaRoutes = require('./routes/proformaRoutes');
 const clientRoutes = require('./routes/clientRoutes');
+const sacCodeRoutes = require('./routes/sacCodeRoutes');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/proformas', proformaRoutes);
 app.use('/api/clients', clientRoutes);
+app.use('/api/sac-codes', sacCodeRoutes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/health', async (req, res) => {

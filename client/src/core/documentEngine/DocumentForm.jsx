@@ -1,8 +1,19 @@
-import { useState } from 'react';
-import { Button, InputField, TextAreaField, MultiSelectDropdown } from '../components';
-import { generateNextNumber } from '../utils';
+import { useEffect, useState } from 'react';
+import { Button, InputField, TextAreaField, MultiSelectDropdown, SearchableSelect } from '../components';
+import { generateNextNumber, getLineAmount, getLineQty, getLinesSubtotal } from '../utils';
 import { useClients } from '../../modules/client';
-import { FiSave, FiRefreshCw, FiArrowLeft, FiUser, FiMail, FiPhone, FiMapPin, FiFileText, FiCheckSquare, FiSquare } from 'react-icons/fi';
+import { fetchSacCodes } from '../../api/sacCodeApi';
+import { FiSave, FiRefreshCw, FiArrowLeft, FiUser, FiMail, FiPhone, FiMapPin, FiFileText, FiCheckSquare, FiSquare, FiLock, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+
+const createLineItem = () => ({ sacId: '', sacCode: '', sacDescription: '', description: '', qty: '1', rate: '' });
+
+// Fills in fields that records saved before SAC codes and quantities existed don't have
+const toFormLineItem = (line) => ({
+  ...createLineItem(),
+  ...line,
+  qty: (line.qty ?? 1).toString(),
+  rate: (line.rate ?? '').toString(),
+});
 
 const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = false, config, referenceNoOptions = [], referenceNoData = [] }) => {
   const isFieldActive = (fieldName) => (config.fields ? config.fields.includes(fieldName) : true);
@@ -10,11 +21,39 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
   const clientCtx = useClients();
   const clientList = clientCtx?.clients || [];
 
+  const [sacCodes, setSacCodes] = useState([]);
+  const [sacStatus, setSacStatus] = useState('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSacCodes()
+      .then((codes) => {
+        if (cancelled) return;
+        setSacCodes(codes);
+        setSacStatus('ready');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('[DocumentForm] fetchSacCodes:', err.message);
+        setSacStatus('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const sacOptions = sacCodes.map((sac) => ({
+    value: sac.code,
+    label: sac.code,
+    description: sac.description,
+    hint: sac.applicableWork,
+  }));
+
   const [formData, setFormData] = useState(() => {
     if (isEdit && initialData) {
-      const existingLineItems = initialData.lineItems?.length 
-        ? initialData.lineItems 
-        : [{ description: initialData.description || '', rate: initialData.rate || '' }];
+      const existingLineItems = initialData.lineItems?.length
+        ? initialData.lineItems.map(toFormLineItem)
+        : [toFormLineItem({ description: initialData.description || '', rate: initialData.rate || '' })];
       return {
         ...initialData,
         rate: initialData.rate?.toString() || '',
@@ -44,7 +83,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
       gstin: '',
       createdDate: createdStr,
       dueDate: dueStr,
-      lineItems: [{ description: '', rate: '' }],
+      lineItems: [createLineItem()],
       adjustment: '0',
     };
   });
@@ -71,7 +110,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
         ...prev,
         selectedClientId: '',
         selectedProformaIds: [],
-        lineItems: [{ description: '', rate: '' }],
+        lineItems: [createLineItem()],
         proformaRefs: [],
       }));
       return;
@@ -88,7 +127,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
         address: client.address || '',
         gstin: client.gstin || '',
         selectedProformaIds: [],
-        lineItems: [{ description: '', rate: '' }],
+        lineItems: [createLineItem()],
         proformaRefs: [],
       }));
       setErrors((prev) => ({ ...prev, name: '', email: '', phone: '', address: '', gstin: '' }));
@@ -110,14 +149,13 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
         selectedProfs.length > 0
           ? selectedProfs.flatMap((p) =>
               p.lineItems && p.lineItems.length > 0
-                ? p.lineItems.map((li) => ({
+                ? p.lineItems.map((li) => toFormLineItem({
                     ...li,
-                    rate: li.rate?.toString() ?? '',
                     _fromProforma: p.invoiceNumber,
                   }))
-                : [{ description: p.description || '', rate: (p.rate ?? '').toString(), _fromProforma: p.invoiceNumber }]
+                : [toFormLineItem({ description: p.description || '', rate: p.rate, _fromProforma: p.invoiceNumber })]
             )
-          : [{ description: '', rate: '' }];
+          : [createLineItem()];
 
       return {
         ...prev,
@@ -141,7 +179,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
         selectedProformaIds: [],
         referenceNoSelected: [],
         referenceNo: '',
-        lineItems: [{ description: '', rate: '' }],
+        lineItems: [createLineItem()],
         proformaRefs: [],
         sourceProformaNumber: '',
       }));
@@ -149,19 +187,18 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
       // Select all
       const mergedLineItems = clientProformas.flatMap((p) =>
         p.lineItems && p.lineItems.length > 0
-          ? p.lineItems.map((li) => ({
+          ? p.lineItems.map((li) => toFormLineItem({
               ...li,
-              rate: li.rate?.toString() ?? '',
               _fromProforma: p.invoiceNumber,
             }))
-          : [{ description: p.description || '', rate: (p.rate ?? '').toString(), _fromProforma: p.invoiceNumber }]
+          : [toFormLineItem({ description: p.description || '', rate: p.rate, _fromProforma: p.invoiceNumber })]
       );
       setFormData((prev) => ({
         ...prev,
         selectedProformaIds: allIds,
         referenceNoSelected: allIds,
         referenceNo: allIds.join(', '),
-        lineItems: mergedLineItems.length > 0 ? mergedLineItems : [{ description: '', rate: '' }],
+        lineItems: mergedLineItems.length > 0 ? mergedLineItems : [createLineItem()],
         proformaRefs: allIds,
         sourceProformaNumber: allIds[0] || '',
       }));
@@ -186,11 +223,9 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
   };
 
   const handleLineItemChange = (index, field, value) => {
-    const newLineItems = [...formData.lineItems];
-    newLineItems[index][field] = value;
     setFormData((prev) => ({
       ...prev,
-      lineItems: newLineItems,
+      lineItems: prev.lineItems.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
     }));
     const errorKey = `lineItem_${index}_${field}`;
     if (errors[errorKey]) {
@@ -198,10 +233,31 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
     }
   };
 
+  const handleSacChange = (index, code) => {
+    const sac = sacCodes.find((s) => s.code === code);
+    setFormData((prev) => ({
+      ...prev,
+      lineItems: prev.lineItems.map((item, i) => {
+        if (i !== index) return item;
+        // Fill the description unless the user has written their own
+        const current = item.description.trim();
+        const isCustomText = current && !sacCodes.some((s) => s.description === current);
+        return {
+          ...item,
+          sacId: sac?.id || '',
+          sacCode: sac?.code || '',
+          sacDescription: sac?.description || '',
+          description: sac && !isCustomText ? sac.description : item.description,
+        };
+      }),
+    }));
+    setErrors((prev) => ({ ...prev, [`lineItem_${index}_description`]: '' }));
+  };
+
   const addLineItem = () => {
     setFormData((prev) => ({
       ...prev,
-      lineItems: [...prev.lineItems, { description: '', rate: '' }],
+      lineItems: [...prev.lineItems, createLineItem()],
     }));
   };
 
@@ -269,6 +325,9 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
           if (isFieldActive('description') && !item.description.trim()) {
             newErrors[`lineItem_${index}_description`] = 'Description is required';
           }
+          if (!(parseFloat(item.qty) > 0)) {
+            newErrors[`lineItem_${index}_qty`] = 'Enter a quantity above 0';
+          }
           if (isFieldActive('rate')) {
             if (!item.rate) {
               newErrors[`lineItem_${index}_rate`] = 'Rate is required';
@@ -290,7 +349,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
   const handleSubmit = (e) => {
     e.preventDefault();
     if (validateForm()) {
-      const totalRate = formData.lineItems.reduce((sum, item) => sum + (parseFloat(item.rate) || 0), 0);
+      const totalRate = getLinesSubtotal(formData.lineItems);
       // Strip internal UI-only fields that should never be persisted to the database
       // eslint-disable-next-line no-unused-vars
       const { selectedClientId, referenceNoSelected, ...persistableData } = formData;
@@ -301,7 +360,12 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
         lineItems: formData.lineItems.map(item => {
           // eslint-disable-next-line no-unused-vars
           const { _fromProforma, ...cleanItem } = item;
-          return { ...cleanItem, rate: parseFloat(item.rate) || 0 };
+          return {
+            ...cleanItem,
+            qty: getLineQty(item),
+            rate: parseFloat(item.rate) || 0,
+            amount: parseFloat(getLineAmount(item).toFixed(2)),
+          };
         })
       };
       onSave(cleanedData);
@@ -321,7 +385,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       description: '',
       rate: '',
-      lineItems: [{ description: '', rate: '' }],
+      lineItems: [createLineItem()],
     });
     setErrors({});
   };
@@ -371,11 +435,8 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
                         // Merge line items from all selected proformas
                         const mergedLineItems = selectedProformas.flatMap((p) =>
                           p.lineItems && p.lineItems.length > 0
-                            ? p.lineItems.map((li) => ({
-                                ...li,
-                                rate: li.rate?.toString() ?? '',
-                              }))
-                            : [{ description: p.description || '', rate: (p.rate ?? '').toString() }]
+                            ? p.lineItems.map(toFormLineItem)
+                            : [toFormLineItem({ description: p.description || '', rate: p.rate })]
                         );
 
                         return {
@@ -389,7 +450,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
                           // Line items — always replaced by the selection
                           lineItems: mergedLineItems.length > 0
                             ? mergedLineItems
-                            : [{ description: '', rate: '' }],
+                            : [createLineItem()],
                           // Track primary source for status-sync
                           sourceProformaNumber: vals[0],
                         };
@@ -400,7 +461,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
                     if (vals.length === 0) {
                       return {
                         ...base,
-                        lineItems: [{ description: '', rate: '' }],
+                        lineItems: [createLineItem()],
                         sourceProformaNumber: '',
                       };
                     }
@@ -539,7 +600,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
                   <div className="space-y-2">
                     {clientProformas.map((pf) => {
                       const isChecked = (formData.selectedProformaIds || []).includes(pf.invoiceNumber);
-                      const pfTotal = (pf.lineItems || []).reduce((s, li) => s + (parseFloat(li.rate) || 0), 0) || pf.rate || 0;
+                      const pfTotal = getLinesSubtotal(pf.lineItems) || pf.rate || 0;
                       const statusColor =
                         pf.status === 'Approved'
                           ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
@@ -722,44 +783,76 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
 
           <div className="space-y-4">
             {formData.lineItems.map((item, index) => (
-              <div key={index} className="flex flex-col md:flex-row gap-4 p-4 border border-slate-100 rounded-xl bg-slate-50/50">
-                <div className="flex-grow">
-                  <InputField
-                    label={index === 0 ? "Line Item Description" : "Description"}
-                    name={`description_${index}`}
-                    value={item.description}
-                    onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
-                    placeholder="e.g. Software Development Services"
-                    error={errors[`lineItem_${index}_description`]}
-                    required={isFieldActive('description')}
-                  />
-                </div>
-                <div className="w-full md:w-1/3">
-                  <InputField
-                    label={index === 0 ? `Rate / Amount (${config.currency || '₹'})` : "Amount"}
-                    type="number"
-                    name={`rate_${index}`}
-                    step="0.01"
-                    value={item.rate}
-                    onChange={(e) => handleLineItemChange(index, 'rate', e.target.value)}
-                    placeholder="0.00"
-                    prefix={config.currency || '₹'}
-                    error={errors[`lineItem_${index}_rate`]}
-                    required={isFieldActive('rate')}
-                  />
-                </div>
-                {formData.lineItems.length > 1 && (
-                  <div className="flex items-center pt-6">
-                    <button
-                      type="button"
-                      onClick={() => removeLineItem(index)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Remove Item"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                    </button>
+              <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-slate-100 rounded-xl bg-slate-50/50">
+                <SearchableSelect
+                  label="SAC Code"
+                  options={sacOptions}
+                  value={item.sacCode}
+                  onChange={(code) => handleSacChange(index, code)}
+                  placeholder={sacStatus === 'loading' ? 'Loading SAC codes…' : 'Select SAC code…'}
+                  emptyMessage={sacStatus === 'error' ? 'Could not load SAC codes. Reload the page to try again.' : 'No SAC codes found'}
+                />
+                <InputField
+                  label={index === 0 ? "Line Item Description" : "Description"}
+                  name={`description_${index}`}
+                  value={item.description}
+                  onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
+                  placeholder="e.g. Software Development Services"
+                  error={errors[`lineItem_${index}_description`]}
+                  required={isFieldActive('description')}
+                />
+                <div className="md:col-span-2 flex flex-col sm:flex-row gap-4">
+                  <div className="w-full sm:w-28 shrink-0">
+                    <InputField
+                      label="Qty"
+                      type="number"
+                      name={`qty_${index}`}
+                      min="0"
+                      step="any"
+                      value={item.qty}
+                      onChange={(e) => handleLineItemChange(index, 'qty', e.target.value)}
+                      error={errors[`lineItem_${index}_qty`]}
+                      required
+                    />
                   </div>
-                )}
+                  <div className="flex-1 min-w-0">
+                    <InputField
+                      label={`Rate (${config.currency || '₹'})`}
+                      type="number"
+                      name={`rate_${index}`}
+                      step="0.01"
+                      value={item.rate}
+                      onChange={(e) => handleLineItemChange(index, 'rate', e.target.value)}
+                      placeholder="0.00"
+                      prefix={config.currency || '₹'}
+                      error={errors[`lineItem_${index}_rate`]}
+                      required={isFieldActive('rate')}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <InputField
+                      label={`Amount (${config.currency || '₹'})`}
+                      name={`amount_${index}`}
+                      value={getLineAmount(item).toFixed(2)}
+                      prefix={config.currency || '₹'}
+                      className="bg-slate-100 text-slate-600 cursor-default"
+                      readOnly
+                      tabIndex={-1}
+                    />
+                  </div>
+                  {formData.lineItems.length > 1 && (
+                    <div className="flex items-center sm:pt-6">
+                      <button
+                        type="button"
+                        onClick={() => removeLineItem(index)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remove Item"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>

@@ -6,7 +6,7 @@ import ProformaTable from '../components/ProformaTable';
 import ProformaForm from '../components/ProformaForm';
 import ExportButton from '../../../components/ExportButton';
 import { FiPlus, FiX, FiFileText, FiSave, FiCheckCircle } from 'react-icons/fi';
-import { formatCurrency } from '../../../core/utils';
+import { formatCurrency, getLinesSubtotal } from '../../../core/utils';
 
 const ConvertModal = ({ proforma, invoiceConfig, onSave, onClose }) => {
   const [referenceNo, setReferenceNo] = useState(proforma.invoiceNumber || '');
@@ -21,7 +21,7 @@ const ConvertModal = ({ proforma, invoiceConfig, onSave, onClose }) => {
     proforma.lineItems && proforma.lineItems.length > 0
       ? proforma.lineItems
       : [{ rate: proforma.rate || 0 }];
-  const subtotal = lineItemsList.reduce((s, l) => s + (parseFloat(l.rate) || 0), 0);
+  const subtotal = getLinesSubtotal(lineItemsList);
   const gst = subtotal * 0.18;
   const adjustment = parseFloat(proforma.adjustment) || 0;
   const total = subtotal + gst + adjustment;
@@ -195,6 +195,8 @@ const ProformaPage = () => {
       adjustment: convertingProforma.adjustment || '0',
       status: 'Pending',
       sourceProformaNumber: convertingProforma.invoiceNumber,
+      proformaRefs: [convertingProforma.invoiceNumber],
+      selectedProformaIds: [convertingProforma.invoiceNumber],
     };
     addInvoice(invoiceData);
   };

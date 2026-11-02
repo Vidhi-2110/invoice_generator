@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
+const { getLineQty, getLineAmount, getLinesSubtotal } = require('../utils/lineItems');
 
 /**
  * Converts a number into Indian currency words matching the client app format.
@@ -190,7 +191,7 @@ function generateProformaPdfBuffer(proforma, company = {}) {
         ? proforma.lineItems
         : [{ description: proforma.description || 'Website', rate: proforma.rate || 0 }];
 
-      const subtotal = lineItems.reduce((s, li) => s + (parseFloat(li.rate) || 0), 0);
+      const subtotal = getLinesSubtotal(lineItems);
       const taxRate = 0.18;
       const gstAmt = subtotal * taxRate;
       const adjustment = parseFloat(proforma.adjustment) || 0;
@@ -380,20 +381,26 @@ function generateProformaPdfBuffer(proforma, company = {}) {
       curY += 16;
 
       // ── Line Items Table ──
-      const colSrW = 55;
-      const colRateW = 95;
-      const colAmtW = 100;
-      const colDescW = contentW - (colSrW + colRateW + colAmtW);
+      const colSrW = 42;
+      const colSacW = 52;
+      const colQtyW = 28;
+      const colRateW = 80;
+      const colAmtW = 85;
+      const colDescW = contentW - (colSrW + colSacW + colQtyW + colRateW + colAmtW);
 
       const colSrX = contentX;
       const colDescX = colSrX + colSrW;
-      const colRateX = colDescX + colDescW;
+      const colSacX = colDescX + colDescW;
+      const colQtyX = colSacX + colSacW;
+      const colRateX = colQtyX + colQtyW;
       const colAmtX = colRateX + colRateW;
 
       // Table Header Text
       doc.font(fontBold).fontSize(8.5).fillColor(brandColor);
       doc.text('SR. NO.', colSrX, curY);
-      doc.text('DESCRIPTION', colDescX, curY);
+      doc.text('DESCRIPTION OF SERVICE', colDescX, curY);
+      doc.text('SAC CODE', colSacX, curY);
+      doc.text('QTY', colQtyX, curY, { width: colQtyW, align: 'right' });
       doc.text('RATE', colRateX, curY, { width: colRateW, align: 'right' });
       doc.text('AMOUNT', colAmtX, curY, { width: colAmtW, align: 'right' });
       curY += 14;
@@ -404,16 +411,26 @@ function generateProformaPdfBuffer(proforma, company = {}) {
 
       // Table Rows
       lineItems.forEach((li, idx) => {
-        const rowH = 26;
+        // The description column is narrow enough for SAC descriptions to wrap
+        const descText = li.description || '—';
+        const descH = doc.font(fontRegular).fontSize(8.5).heightOfString(descText, { width: colDescW - 10 });
+        const rowH = Math.max(26, descH + 14);
         if (idx % 2 === 0) {
           doc.rect(contentX, curY, contentW, rowH).fill(tableStripeBg);
         }
 
         const textY = curY + 7;
         doc.font(fontRegular).fontSize(8.5).fillColor(textMuted).text(`${idx + 1}.`, colSrX, textY);
-        doc.font(fontRegular).fontSize(8.5).fillColor(textDark).text(li.description || '—', colDescX, textY, {
+        doc.font(fontRegular).fontSize(8.5).fillColor(textDark).text(descText, colDescX, textY, {
           width: colDescW - 10,
         });
+        doc.font(fontRegular).fontSize(8.5).fillColor(textMedium).text(li.sacCode || '—', colSacX, textY);
+        doc.font(fontRegular).fontSize(8.5).fillColor(textMedium).text(
+          String(getLineQty(li)),
+          colQtyX,
+          textY,
+          { width: colQtyW, align: 'right' }
+        );
         doc.font(fontRegular).fontSize(8.5).fillColor(textMedium).text(
           `${currSym}${fmtCurr(li.rate)}`,
           colRateX,
@@ -421,7 +438,7 @@ function generateProformaPdfBuffer(proforma, company = {}) {
           { width: colRateW, align: 'right' }
         );
         doc.font(fontBold).fontSize(8.5).fillColor(textDark).text(
-          `${currSym}${fmtCurr(li.rate)}`,
+          `${currSym}${fmtCurr(getLineAmount(li))}`,
           colAmtX,
           textY,
           { width: colAmtW, align: 'right' }

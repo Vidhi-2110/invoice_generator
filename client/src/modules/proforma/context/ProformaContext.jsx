@@ -1,6 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { generateNextNumber } from '../../../core/utils';
 import { useAuth } from '../../auth';
 import authService from '../../auth/services/authService';
 import defaultProformaConfig from '../proformaConfig';
@@ -102,11 +101,11 @@ export const ProformaProvider = ({ children, config = defaultProformaConfig }) =
   }, [storageKey, user?.id]);
 
   // ── Add proforma ──────────────────────────────────────────────────────────
+  // NOTE: The invoiceNumber is now generated server-side (atomic counter).
+  // The client no longer generates the number to avoid duplicate IDs.
   const addProforma = async (proformaData) => {
-    const nextNumber = generateNextNumber(proformaInvoices, config.numberPrefix);
     const payload = {
       ...proformaData,
-      invoiceNumber: nextNumber,
       createdDate: proformaData.createdDate || new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString(),
     };

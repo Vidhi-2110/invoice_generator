@@ -4,6 +4,72 @@ const { getCollection: getClientCollection } = require('../models/Client');
 const { sendProformaEmail } = require('../services/emailService');
 const { buildCompanyFromUser } = require('../models/User');
 
+// ─── Atomic Proforma Number Generator ────────────────────────────────────────
+/**
+ * Generates a unique, sequential proforma invoice number using an atomic
+ * MongoDB counter. The counter is stored in a 'counters' collection and
+ * is scoped per-user so each user gets their own sequence.
+ *
+ * @param {import('mongodb').MongoClient} dbClient
+ * @param {string} userId - The authenticated user's ID
+ * @param {string} prefix - e.g. "FSPI-"
+ * @returns {Promise<string>} e.g. "FSPI-0003"
+ */
+const generateProformaNumber = async (dbClient, userId, prefix = 'FSPI-') => {
+  const countersCol = dbClient.db('Invoice').collection('counters');
+  const counterId = `proforma_${userId || 'global'}`;
+
+  // Ensure counter is initialized from existing data on first use
+  await ensureCounterInitialized(dbClient, userId, prefix);
+
+  const result = await countersCol.findOneAndUpdate(
+    { _id: counterId },
+    { $inc: { sequenceValue: 1 } },
+    { upsert: true, returnDocument: 'after' }
+  );
+
+  const seq = result.sequenceValue;
+  return `${prefix}${String(seq).padStart(4, '0')}`;
+};
+
+/**
+ * One-time helper: ensures the counter starts at the correct value by
+ * checking the highest existing proforma number for a given user.
+ * Called lazily on first create if the counter doesn't already exist.
+ */
+const ensureCounterInitialized = async (dbClient, userId, prefix = 'FSPI-') => {
+  const countersCol = dbClient.db('Invoice').collection('counters');
+  const counterId = `proforma_${userId || 'global'}`;
+
+  const existing = await countersCol.findOne({ _id: counterId });
+  if (existing) return; // already initialized
+
+  // Find the highest existing proforma number for this user
+  const proformaCol = getCollection(dbClient);
+  const query = userId ? { userId } : {};
+  const docs = await proformaCol.find(query).toArray();
+
+  let maxNumber = 0;
+  const escapedPrefix = prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const regex = new RegExp(`${escapedPrefix}(\\d+)`);
+
+  for (const doc of docs) {
+    const numStr = doc.invoiceNumber || '';
+    const match = String(numStr).match(regex);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (n > maxNumber) maxNumber = n;
+    }
+  }
+
+  // Initialize counter only if it still doesn't exist (race-safe via upsert + $setOnInsert)
+  await countersCol.updateOne(
+    { _id: counterId },
+    { $setOnInsert: { sequenceValue: maxNumber } },
+    { upsert: true }
+  );
+};
+
 // ─── GET /api/proformas ──────────────────────────────────────────────────────
 const getAllProformas = async (req, res) => {
   try {
@@ -22,7 +88,12 @@ const getAllProformas = async (req, res) => {
 const createProforma = async (req, res) => {
   try {
     const col = getCollection(req.app.locals.dbClient);
-    const doc = buildDocument({ ...req.body, userId: req.user?.id });
+
+    // Generate a unique, sequential proforma number server-side
+    const userId = req.user?.id;
+    const invoiceNumber = await generateProformaNumber(req.app.locals.dbClient, userId);
+
+    const doc = buildDocument({ ...req.body, userId, invoiceNumber });
     const result = await col.insertOne(doc);
     const saved = { id: result.insertedId.toString(), ...doc };
 
@@ -80,7 +151,7 @@ const updateProforma = async (req, res) => {
 
   try {
     const col = getCollection(req.app.locals.dbClient);
-    const { _id, id: _frontendId, ...updateData } = req.body;
+    const { _id, id: _frontendId, invoiceNumber: _ignoredNumber, ...updateData } = req.body;
     const userId = req.user?.id;
     const query = userId ? { _id: new ObjectId(id), userId } : { _id: new ObjectId(id) };
 

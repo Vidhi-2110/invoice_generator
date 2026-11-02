@@ -196,6 +196,9 @@ Each domain module in `src/modules/` is designed as an independent unit containi
 - `PUT /api/proformas/:id` — Update an existing proforma by ID.
 - `DELETE /api/proformas/:id` — Delete a proforma document by ID.
 
+### **SAC Codes API**
+- `GET /api/sac-codes` — Retrieve the SAC code master list. The `sac_codes` collection is seeded with the predefined codes on server start; existing records are left as they are.
+
 ### **Authentication API**
 - `POST /api/auth/register` — Create a new user account.
 - `POST /api/auth/login` — Sign in and receive JWT token.
