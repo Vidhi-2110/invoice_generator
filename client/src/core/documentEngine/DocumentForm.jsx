@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Button, InputField, TextAreaField, MultiSelectDropdown, SearchableSelect } from '../components';
 import { generateNextNumber, getLineAmount, getLineQty, getLinesSubtotal } from '../utils';
 import { useClients } from '../../modules/client';
@@ -89,6 +89,23 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
   });
 
   const [errors, setErrors] = useState({});
+  const [showInvoicedProformas, setShowInvoicedProformas] = useState(false);
+
+  // Determines if a proforma has already been invoiced (Approved/Paid or linked to an existing invoice)
+  const isProformaInvoiced = (pf) => {
+    if (!pf) return false;
+    if (pf.status === 'Approved' || pf.status === 'Paid') return true;
+    const pfNum = (pf.invoiceNumber || pf.proformaNumber || '').trim();
+    if (!pfNum) return false;
+    return (items || []).some((inv) => {
+      // When editing, don't block proformas linked to this invoice itself
+      if (isEdit && initialData?.id && inv.id === initialData.id) return false;
+      if (Array.isArray(inv.proformaRefs) && inv.proformaRefs.map((n) => n?.trim()).includes(pfNum)) return true;
+      if (inv.referenceNo && inv.referenceNo.split(',').map((s) => s.trim()).includes(pfNum)) return true;
+      if (inv.sourceProformaNumber && inv.sourceProformaNumber.trim() === pfNum) return true;
+      return false;
+    });
+  };
 
   // Find proformas for the currently selected client
   const selectedClient = formData.selectedClientId
@@ -102,6 +119,10 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
           p.email?.toLowerCase() === selectedClient.email?.toLowerCase()
       )
     : [];
+
+  // Split into selectable vs already-invoiced/paid
+  const availableProformas = clientProformas.filter((p) => !isProformaInvoiced(p));
+  const invoicedProformas  = clientProformas.filter((p) =>  isProformaInvoiced(p));
 
   const handleClientChange = (e) => {
     const selectedId = e.target.value;
@@ -135,14 +156,17 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
   };
 
   const handleProformaToggle = (proforma) => {
+    // Guard: already-invoiced / approved proformas are not selectable
+    if (isProformaInvoiced(proforma)) return;
+
     setFormData((prev) => {
       const alreadySelected = (prev.selectedProformaIds || []).includes(proforma.invoiceNumber);
       const newSelected = alreadySelected
         ? (prev.selectedProformaIds || []).filter((id) => id !== proforma.invoiceNumber)
         : [...(prev.selectedProformaIds || []), proforma.invoiceNumber];
 
-      // Re-build line items from newly selected proformas
-      const selectedProfs = clientProformas.filter((p) =>
+      // Re-build line items from the available (not-yet-invoiced) proformas only
+      const selectedProfs = availableProformas.filter((p) =>
         newSelected.includes(p.invoiceNumber)
       );
       const mergedLineItems =
@@ -170,9 +194,10 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
   };
 
   const handleSelectAllProformas = () => {
-    const allIds = clientProformas.map((p) => p.invoiceNumber);
-    const allSelected = allIds.every((id) => (formData.selectedProformaIds || []).includes(id));
-    if (allSelected) {
+    // Only select/deselect available (not-yet-invoiced) proformas
+    const availableIds = availableProformas.map((p) => p.invoiceNumber);
+    const allAvailableSelected = availableIds.length > 0 && availableIds.every((id) => (formData.selectedProformaIds || []).includes(id));
+    if (allAvailableSelected) {
       // Deselect all
       setFormData((prev) => ({
         ...prev,
@@ -184,8 +209,8 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
         sourceProformaNumber: '',
       }));
     } else {
-      // Select all
-      const mergedLineItems = clientProformas.flatMap((p) =>
+      // Select all available proformas
+      const mergedLineItems = availableProformas.flatMap((p) =>
         p.lineItems && p.lineItems.length > 0
           ? p.lineItems.map((li) => toFormLineItem({
               ...li,
@@ -195,18 +220,18 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
       );
       setFormData((prev) => ({
         ...prev,
-        selectedProformaIds: allIds,
-        referenceNoSelected: allIds,
-        referenceNo: allIds.join(', '),
+        selectedProformaIds: availableIds,
+        referenceNoSelected: availableIds,
+        referenceNo: availableIds.join(', '),
         lineItems: mergedLineItems.length > 0 ? mergedLineItems : [createLineItem()],
-        proformaRefs: allIds,
-        sourceProformaNumber: allIds[0] || '',
+        proformaRefs: availableIds,
+        sourceProformaNumber: availableIds[0] || '',
       }));
     }
   };
 
-  const allProformaIds = clientProformas.map((p) => p.invoiceNumber);
-  const allSelected = allProformaIds.length > 0 && allProformaIds.every((id) => (formData.selectedProformaIds || []).includes(id));
+  const availableIds = availableProformas.map((p) => p.invoiceNumber);
+  const allSelected = availableIds.length > 0 && availableIds.every((id) => (formData.selectedProformaIds || []).includes(id));
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -573,13 +598,13 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
                     <span className="text-xs font-bold text-violet-700">
                       Proforma Invoices — {selectedClient.name}
                     </span>
-                    {clientProformas.length > 0 && (
+                    {availableProformas.length > 0 && (
                       <span className="text-[10px] font-bold bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full">
-                        {clientProformas.length}
+                        {availableProformas.length}
                       </span>
                     )}
                   </div>
-                  {clientProformas.length > 0 && (
+                  {availableProformas.length > 0 && (
                     <button
                       type="button"
                       onClick={handleSelectAllProformas}
@@ -598,15 +623,17 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {clientProformas.map((pf) => {
+
+                    {/* ── Available (pending) proformas ── */}
+                    {availableProformas.length === 0 && invoicedProformas.length > 0 && (
+                      <div className="bg-white/70 rounded-xl border border-slate-100 px-4 py-4 text-center">
+                        <p className="text-xs font-semibold text-slate-400">All proforma invoices for this client have already been invoiced or approved.</p>
+                      </div>
+                    )}
+
+                    {availableProformas.map((pf) => {
                       const isChecked = (formData.selectedProformaIds || []).includes(pf.invoiceNumber);
                       const pfTotal = getLinesSubtotal(pf.lineItems) || pf.rate || 0;
-                      const statusColor =
-                        pf.status === 'Approved'
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                          : pf.status === 'Paid'
-                          ? 'bg-blue-50 text-blue-600 border-blue-200'
-                          : 'bg-amber-50 text-amber-600 border-amber-200';
                       return (
                         <button
                           key={pf.invoiceNumber}
@@ -628,13 +655,12 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
                               </svg>
                             )}
                           </div>
-
                           {/* Content */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <span className="text-xs font-bold text-slate-700">{pf.invoiceNumber}</span>
                               <div className="flex items-center gap-1.5">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColor}`}>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-600 border-amber-200">
                                   {pf.status || 'Pending'}
                                 </span>
                                 <span className="text-xs font-black text-slate-800">
@@ -660,6 +686,63 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
                         </button>
                       );
                     })}
+
+                    {/* ── Already-invoiced / Approved / Paid proformas (collapsed, non-selectable) ── */}
+                    {invoicedProformas.length > 0 && (
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowInvoicedProformas((v) => !v)}
+                          className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors mb-2"
+                        >
+                          {showInvoicedProformas ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
+                          {showInvoicedProformas ? 'Hide' : 'Show'} {invoicedProformas.length} already invoiced / approved
+                        </button>
+
+                        {showInvoicedProformas && invoicedProformas.map((pf) => {
+                          const pfTotal = getLinesSubtotal(pf.lineItems) || pf.rate || 0;
+                          const statusColor =
+                            pf.status === 'Approved'
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                              : pf.status === 'Paid'
+                              ? 'bg-blue-50 text-blue-600 border-blue-200'
+                              : 'bg-slate-50 text-slate-500 border-slate-200';
+                          return (
+                            <div
+                              key={pf.invoiceNumber}
+                              className="w-full flex items-start gap-3 p-3 rounded-xl border text-left bg-slate-50/80 border-slate-200 opacity-60 cursor-not-allowed mb-2"
+                              title="This proforma has already been converted to an invoice or marked as approved/paid"
+                            >
+                              {/* Lock icon instead of checkbox */}
+                              <div className="mt-0.5 shrink-0 w-4 h-4 flex items-center justify-center text-slate-400">
+                                <FiLock size={12} />
+                              </div>
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <span className="text-xs font-bold text-slate-400">{pf.invoiceNumber}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColor}`}>
+                                      {pf.status || 'Pending'}
+                                    </span>
+                                    <span className="text-xs font-black text-slate-400">
+                                      ₹{Number(pfTotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                  <span className="text-[11px] text-slate-400">{pf.name}</span>
+                                  {pf.createdDate && (
+                                    <span className="text-[11px] text-slate-300">Created: {pf.createdDate}</span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-300 mt-0.5 font-medium">Already invoiced / approved — not selectable</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
