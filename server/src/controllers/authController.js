@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getCollection, buildDocument, normalizeDoc } = require('../models/User');
+const { getEmailError } = require('../utils/email');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -15,6 +16,11 @@ const register = async (req, res) => {
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Name, email and password are required.' });
+  }
+
+  const emailError = getEmailError(email);
+  if (emailError) {
+    return res.status(400).json({ error: emailError });
   }
 
   try {
@@ -112,6 +118,10 @@ const updateProfile = async (req, res) => {
 
     // Update email — check no duplicate
     if (email && email.toLowerCase().trim() !== userDoc.email) {
+      const emailError = getEmailError(email);
+      if (emailError) {
+        return res.status(400).json({ error: emailError });
+      }
       const duplicate = await col.findOne({ email: email.toLowerCase().trim() });
       if (duplicate) {
         return res.status(409).json({ error: 'This email is already in use by another account.' });
@@ -176,6 +186,12 @@ const updateCompanyAssets = async (req, res) => {
     const val = req.body[key];
     if (val !== null && typeof val !== 'string') {
       return res.status(400).json({ error: `Invalid ${key} field.` });
+    }
+    if (key === 'email' && val) {
+      const emailError = getEmailError(val);
+      if (emailError) {
+        return res.status(400).json({ error: emailError });
+      }
     }
     updates[`companyAssets.${key}`] = val ? String(val).trim() : '';
   }

@@ -97,12 +97,12 @@ const DocumentPreview = ({ item, config }) => {
       </div>
 
       {/* ── Document PDF Container ── */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl shadow-md overflow-hidden print:shadow-sm print:rounded-2xl print:border print:border-slate-200/80 print:break-inside-avoid">
+      <div className="bg-white border border-slate-200/80 rounded-2xl shadow-md overflow-hidden print:shadow-sm print:rounded-2xl print:border print:border-slate-200/80 print:break-inside-avoid print:flex print:flex-col print:min-h-[var(--a4-card-height)]">
 
         {/* ── Top Brand Accent Bar ── */}
         <div className="h-2.5 w-full" style={brandBg()} />
 
-        <div className="p-8 md:p-12 space-y-6 md:space-y-8 print:p-8 print:py-6 print:space-y-4">
+        <div className="p-8 md:p-12 space-y-6 md:space-y-8 print:p-8 print:py-6 print:space-y-4 print:flex-1 print:flex print:flex-col">
 
           {/* ── Header: Company Info + Document Title ── */}
           <div className="flex flex-col md:flex-row justify-between items-start gap-8 print:gap-4">
@@ -215,7 +215,7 @@ const DocumentPreview = ({ item, config }) => {
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
                 {lineItemsList.map((line, idx) => (
-                  <tr key={idx} className={idx % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'}>
+                  <tr key={idx} className={`print:break-inside-avoid ${idx % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'}`}>
                     <td className="py-2.5 px-3 print:py-1.5 text-slate-600 font-semibold">{idx + 1}.</td>
                     <td className="py-2.5 px-3 print:py-1.5 whitespace-pre-wrap font-medium">{line.description}</td>
                     <td className="py-2.5 px-3 print:py-1.5 text-slate-700">{line.sacCode || '—'}</td>
@@ -348,6 +348,8 @@ const DocumentPreview = ({ item, config }) => {
             </div>
           </div>
 
+          {/* On print this block sits at the bottom of the A4 sheet and is never split across pages */}
+          <div className="space-y-6 md:space-y-8 print:space-y-4 print:mt-auto print:break-inside-avoid">
           <div className="border-t border-slate-200/80 pt-4 print:pt-2" />
 
           {/* ── Footer: Bank Details + Signatory ── */}
@@ -404,6 +406,7 @@ const DocumentPreview = ({ item, config }) => {
               </div>
               <p className="text-[11px] font-semibold text-slate-600">Authorized Signature</p>
             </div>
+          </div>
           </div>
         </div>
 

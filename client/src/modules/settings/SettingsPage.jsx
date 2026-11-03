@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fi';
 import { useCompanySettings } from '../../components/Layout/CompanySettingsContext';
 import { COLOR_PALETTES, applyPalette, getPaletteById } from '../../core/theme/palettes';
+import { sanitizePhone, isValidPhone, PHONE_ERROR, getEmailError } from '../../core/utils';
 
 /* ─── Canvas crop helper ────────────────────────────────────────────────────── */
 async function getCroppedImg(imageSrc, pixelCrop, rotation = 0, size = 400) {
@@ -228,7 +229,7 @@ function Section({ icon: Icon, title, subtitle, children }) {
 }
 
 /* ─── Text Input Field ──────────────────────────────────────────────────────── */
-function Field({ label, icon: Icon, required, maxLength, value, onChange, placeholder, type = 'text', hint }) {
+function Field({ label, icon: Icon, required, maxLength, value, onChange, placeholder, type = 'text', inputMode, hint }) {
   return (
     <div>
       <label className="block text-xs font-semibold text-slate-600 mb-1.5">
@@ -242,6 +243,7 @@ function Field({ label, icon: Icon, required, maxLength, value, onChange, placeh
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           maxLength={maxLength}
+          inputMode={inputMode}
           className={`w-full ${Icon ? 'pl-10' : 'pl-3.5'} pr-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-800 font-medium placeholder:text-slate-400 placeholder:font-normal`}
         />
       </div>
@@ -259,7 +261,7 @@ export default function SettingsPage() {
     tagline: settings.tagline || '',
     logo: settings.logo || null,
     colorPalette: settings.colorPalette || 'indigo',
-    phone: settings.phone || '',
+    phone: sanitizePhone(settings.phone),
     email: settings.email || '',
     address: settings.address || '',
     bankName: settings.bankName || '',
@@ -286,6 +288,15 @@ export default function SettingsPage() {
     setError('');
     if (!form.companyName.trim()) {
       setError('Company name is required.');
+      return;
+    }
+    if (form.phone && !isValidPhone(form.phone)) {
+      setError(PHONE_ERROR);
+      return;
+    }
+    const emailMsg = getEmailError(form.email);
+    if (emailMsg) {
+      setError(emailMsg);
       return;
     }
     updateSettings(form);
@@ -444,8 +455,8 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field
               label="Phone Number" icon={FiPhone}
-              value={form.phone} onChange={set('phone')}
-              placeholder="+91 98765 43210" type="tel"
+              value={form.phone} onChange={(v) => set('phone')(sanitizePhone(v))}
+              placeholder="9876543210" type="tel" inputMode="numeric" maxLength={10}
             />
             <Field
               label="Email Address" icon={FiMail}

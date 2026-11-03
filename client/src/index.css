@@ -49,6 +49,26 @@ body {
     margin: 8mm 6mm;
   }
 
+  :root {
+    /* A4 is 297mm tall; minus the 8mm top and bottom page margins is 281mm.
+       Kept 1mm short so rounding never pushes the card onto a blank second page. */
+    --a4-card-height: 280mm;
+  }
+
+  /* The app shell is a fixed-height, clipped layout; let the document flow for print */
+  #root,
+  .h-screen {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  main {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .lg\:pl-72 {
+    padding-left: 0 !important;
+  }
+
   *, *::before, *::after {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;

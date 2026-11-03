@@ -5,4 +5,7 @@ export * from './sequenceGenerator';
 export * from './numberToWords';
 export * from './excelExporter';
 export * from './lineItems';
+export * from './phone';
+export * from './gstin';
+export * from './email';
 

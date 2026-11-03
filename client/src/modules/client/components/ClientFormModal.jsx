@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiX, FiUser, FiMail, FiPhone, FiMapPin, FiFileText, FiSave, FiCheckCircle } from 'react-icons/fi';
-import { generateNextNumber } from '../../../core/utils';
+import { generateNextNumber, sanitizePhone, isValidPhone, PHONE_ERROR, sanitizeGstin, isValidGstin, GSTIN_ERROR, getEmailError } from '../../../core/utils';
 
 const buildInitialFormData = (clientToEdit, existingClients) => {
   if (clientToEdit) {
@@ -8,9 +8,9 @@ const buildInitialFormData = (clientToEdit, existingClients) => {
       clientId: clientToEdit.clientId || clientToEdit.invoiceNumber || '',
       name: clientToEdit.name || '',
       email: clientToEdit.email || '',
-      phone: clientToEdit.phone || '',
+      phone: sanitizePhone(clientToEdit.phone),
       address: clientToEdit.address || '',
-      gstin: clientToEdit.gstin || '',
+      gstin: sanitizeGstin(clientToEdit.gstin),
       status: clientToEdit.status || 'Active',
       notes: clientToEdit.notes || '',
     };
@@ -31,12 +31,18 @@ const ClientFormModal = ({ isOpen, onClose, onSave, clientToEdit = null, existin
   const [prevSyncKey, setPrevSyncKey] = useState(() => `${isOpen}-${clientToEdit?.id || 'new'}`);
   const [formData, setFormData] = useState(() => buildInitialFormData(clientToEdit, existingClients));
   const [saved, setSaved] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
+  const [gstinError, setGstinError] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   const syncKey = `${isOpen}-${clientToEdit?.id || 'new'}`;
   if (prevSyncKey !== syncKey) {
     setPrevSyncKey(syncKey);
     setFormData(buildInitialFormData(clientToEdit, existingClients));
     setSaved(false);
+    setPhoneError('');
+    setGstinError('');
+    setEmailError('');
   }
 
   if (!isOpen) return null;
@@ -44,6 +50,14 @@ const ClientFormModal = ({ isOpen, onClose, onSave, clientToEdit = null, existin
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email) return;
+    // Phone is optional here, but when given it must be exactly 10 digits
+    const phoneInvalid = formData.phone && !isValidPhone(formData.phone);
+    const gstinInvalid = formData.gstin && !isValidGstin(formData.gstin);
+    const emailMsg = getEmailError(formData.email);
+    setPhoneError(phoneInvalid ? PHONE_ERROR : '');
+    setGstinError(gstinInvalid ? GSTIN_ERROR : '');
+    setEmailError(emailMsg);
+    if (phoneInvalid || gstinInvalid || emailMsg) return;
 
     onSave(formData);
     setSaved(true);
@@ -150,12 +164,18 @@ const ClientFormModal = ({ isOpen, onClose, onSave, clientToEdit = null, existin
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, email: e.target.value });
+                      setEmailError('');
+                    }}
                     placeholder="client@company.com"
                     required
-                    className="w-full pl-9 pr-3.5 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 placeholder:text-slate-400"
+                    className={`w-full pl-9 pr-3.5 py-2 text-xs font-semibold bg-white border rounded-xl focus:outline-none focus:ring-2 text-slate-800 placeholder:text-slate-400 ${
+                      emailError ? 'border-red-300 focus:ring-red-500/20' : 'border-slate-200 focus:ring-blue-500/20'
+                    }`}
                   />
                 </div>
+                {emailError && <p className="text-xs text-red-500 font-medium mt-1">{emailError}</p>}
               </div>
 
               <div>
@@ -163,13 +183,21 @@ const ClientFormModal = ({ isOpen, onClose, onSave, clientToEdit = null, existin
                 <div className="relative">
                   <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+91 98765 43210"
-                    className="w-full pl-9 pr-3.5 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 placeholder:text-slate-400"
+                    onChange={(e) => {
+                      setFormData({ ...formData, phone: sanitizePhone(e.target.value) });
+                      setPhoneError('');
+                    }}
+                    placeholder="9876543210"
+                    className={`w-full pl-9 pr-3.5 py-2 text-xs font-semibold bg-white border rounded-xl focus:outline-none focus:ring-2 text-slate-800 placeholder:text-slate-400 ${
+                      phoneError ? 'border-red-300 focus:ring-red-500/20' : 'border-slate-200 focus:ring-blue-500/20'
+                    }`}
                   />
                 </div>
+                {phoneError && <p className="text-xs text-red-500 font-medium mt-1">{phoneError}</p>}
               </div>
             </div>
 
@@ -184,11 +212,18 @@ const ClientFormModal = ({ isOpen, onClose, onSave, clientToEdit = null, existin
                   <input
                     type="text"
                     value={formData.gstin}
-                    onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
+                    maxLength={15}
+                    onChange={(e) => {
+                      setFormData({ ...formData, gstin: sanitizeGstin(e.target.value) });
+                      setGstinError('');
+                    }}
                     placeholder="27AAACG0000A1Z5"
-                    className="w-full pl-9 pr-3.5 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 placeholder:text-slate-400"
+                    className={`w-full pl-9 pr-3.5 py-2 text-xs font-semibold bg-white border rounded-xl focus:outline-none focus:ring-2 text-slate-800 placeholder:text-slate-400 tracking-wide ${
+                      gstinError ? 'border-red-300 focus:ring-red-500/20' : 'border-slate-200 focus:ring-blue-500/20'
+                    }`}
                   />
                 </div>
+                {gstinError && <p className="text-xs text-red-500 font-medium mt-1">{gstinError}</p>}
               </div>
 
               <div>

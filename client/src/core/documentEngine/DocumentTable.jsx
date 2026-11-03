@@ -51,18 +51,10 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
 
   const toggleStatus = (e, item) => {
     e.stopPropagation();
-    // Lock status for Approved proformas and Paid invoices
-    if (isProforma && item.status === 'Approved') return;
-    if (!isProforma && item.status === 'Paid') return;
-    const isApproved = item.status === 'Approved';
-    const isPaid = item.status === 'Paid';
-    let newStatus;
-    if (isProforma) {
-      newStatus = isApproved ? 'Pending' : 'Approved';
-    } else {
-      newStatus = isPaid ? 'Pending' : 'Paid';
-    }
-    onUpdate(item.id, { ...item, status: newStatus });
+    // Proforma status is only changed through its invoice, never from here
+    if (isProforma) return;
+    if (item.status === 'Paid') return;
+    onUpdate(item.id, { ...item, status: 'Paid' });
   };
 
   // Dynamically extract unique years from createdDate
@@ -321,6 +313,8 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                       dueDate={item.dueDate}
                       onClick={(isProforma && item.status === 'Approved') || (!isProforma && item.status === 'Paid') ? undefined : (e) => toggleStatus(e, item)}
                       locked={(isProforma && item.status === 'Approved') || (!isProforma && item.status === 'Paid')}
+                      // A proforma's status follows its invoice, so it is never set by hand
+                      readOnly={isProforma}
                     />
                   </td>
 

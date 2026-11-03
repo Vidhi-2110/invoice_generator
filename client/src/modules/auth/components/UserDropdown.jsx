@@ -6,6 +6,7 @@ import {
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import ImageCropper from './ImageCropper';
+import { getEmailError } from '../../../core/utils';
 const getInitial = (name) => (name ? name.charAt(0).toUpperCase() : 'U');
 
 const AvatarDisplay = ({ user, avatarPreview, size = 'sm', className = '' }) => {
@@ -127,6 +128,13 @@ export const UserDropdown = () => {
     }
     if (form.newPassword && form.newPassword.length < 6) {
       setEditError('New password must be at least 6 characters.');
+      return;
+    }
+
+    // Only a changed email is checked, so existing accounts can still update other details
+    const emailMsg = form.email.trim() !== user.email ? getEmailError(form.email) : '';
+    if (emailMsg) {
+      setEditError(emailMsg);
       return;
     }
 

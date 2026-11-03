@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, InputField, TextAreaField, MultiSelectDropdown, SearchableSelect } from '../components';
-import { generateNextNumber, getLineAmount, getLineQty, getLinesSubtotal } from '../utils';
+import { generateNextNumber, getLineAmount, getLineQty, getLinesSubtotal, sanitizePhone, isValidPhone, PHONE_ERROR, sanitizeGstin, isValidGstin, GSTIN_ERROR, getEmailError } from '../utils';
 import { useClients } from '../../modules/client';
 import { fetchSacCodes } from '../../api/sacCodeApi';
 import { FiSave, FiRefreshCw, FiArrowLeft, FiUser, FiMail, FiPhone, FiMapPin, FiFileText, FiCheckSquare, FiSquare, FiLock, FiChevronDown, FiChevronUp } from 'react-icons/fi';
@@ -56,6 +56,8 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
         : [toFormLineItem({ description: initialData.description || '', rate: initialData.rate || '' })];
       return {
         ...initialData,
+        phone: sanitizePhone(initialData.phone),
+        gstin: sanitizeGstin(initialData.gstin),
         rate: initialData.rate?.toString() || '',
         referenceNo: initialData.referenceNo || '',
         referenceNoSelected: initialData.referenceNo
@@ -145,9 +147,9 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
         clientId: client.clientId || '',
         name: client.name || '',
         email: client.email || '',
-        phone: client.phone || '',
+        phone: sanitizePhone(client.phone),
         address: client.address || '',
-        gstin: client.gstin || '',
+        gstin: sanitizeGstin(client.gstin),
         selectedProformaIds: [],
         lineItems: [createLineItem()],
         proformaRefs: [],
@@ -235,7 +237,12 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
   const allSelected = availableIds.length > 0 && availableIds.every((id) => (formData.selectedProformaIds || []).includes(id));
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    const value = name === 'phone'
+      ? sanitizePhone(e.target.value)
+      : name === 'gstin'
+      ? sanitizeGstin(e.target.value)
+      : e.target.value;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -308,16 +315,16 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
     if (isFieldActive('email')) {
       if (!formData.email.trim()) {
         newErrors.email = 'Email address is required';
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-        newErrors.email = 'Please enter a valid email address';
+      } else if (getEmailError(formData.email)) {
+        newErrors.email = getEmailError(formData.email);
       }
     }
 
     if (isFieldActive('phone')) {
       if (!formData.phone.trim()) {
         newErrors.phone = 'Phone number is required';
-      } else if (!/^\+?[0-9\s-]{10,15}$/.test(formData.phone.replace(/\s+/g, ''))) {
-        newErrors.phone = 'Enter a valid 10-15 digit phone number';
+      } else if (!isValidPhone(formData.phone)) {
+        newErrors.phone = PHONE_ERROR;
       }
     }
 
@@ -326,8 +333,8 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
     }
 
     if (isFieldActive('gstin')) {
-      if (formData.gstin.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gstin.toUpperCase().trim())) {
-        newErrors.gstin = 'Enter a valid 15-character GSTIN format (e.g. 22AAAAA0000A1Z5)';
+      if (formData.gstin && !isValidGstin(sanitizeGstin(formData.gstin))) {
+        newErrors.gstin = GSTIN_ERROR;
       }
     }
 
@@ -381,7 +388,7 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
       const { selectedClientId, referenceNoSelected, ...persistableData } = formData;
       const cleanedData = {
         ...persistableData,
-        gstin: formData.gstin ? formData.gstin.toUpperCase().trim() : '',
+        gstin: sanitizeGstin(formData.gstin),
         rate: totalRate,
         lineItems: formData.lineItems.map(item => {
           // eslint-disable-next-line no-unused-vars
@@ -470,9 +477,9 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
                           // Customer details — only overwrite if currently empty
                           name:    primary.name    || prev.name,
                           email:   primary.email   || prev.email,
-                          phone:   primary.phone   || prev.phone,
+                          phone:   sanitizePhone(primary.phone) || prev.phone,
                           address: primary.address || prev.address,
-                          gstin:   primary.gstin   || prev.gstin,
+                          gstin:   sanitizeGstin(primary.gstin) || prev.gstin,
                           // Line items — always replaced by the selection
                           lineItems: mergedLineItems.length > 0
                             ? mergedLineItems
@@ -791,7 +798,10 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
             name="phone"
             value={formData.phone}
             onChange={handleChange}
-            placeholder="e.g. +91 9876543210"
+            type="tel"
+            inputMode="numeric"
+            maxLength={10}
+            placeholder="e.g. 9876543210"
             error={errors.phone}
             required
           />

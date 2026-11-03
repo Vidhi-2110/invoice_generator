@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FiUser, FiMail, FiLock, FiBriefcase, FiEye, FiEyeOff, FiAlertCircle, FiCheck, FiArrowRight } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
+import { getEmailError } from '../../../core/utils';
 
 export const RegisterForm = ({ onSuccess, onSwitchToLogin }) => {
   const { register, error, clearError } = useAuth();
@@ -44,6 +45,11 @@ export const RegisterForm = ({ onSuccess, onSwitchToLogin }) => {
     }
     if (!email.trim()) {
       setLocalError('Please enter your email address.');
+      return;
+    }
+    const emailMsg = getEmailError(email);
+    if (emailMsg) {
+      setLocalError(emailMsg);
       return;
     }
     if (password.length < 6) {
