@@ -1,6 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { generateNextNumber } from '../../../core/utils';
 import { useAuth } from '../../auth';
 import authService from '../../auth/services/authService';
 import defaultInvoiceConfig from '../invoiceConfig';
@@ -64,7 +63,7 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
       setInvoices(data);
       saveToStorage(storageKey, data);
     } catch (err) {
-      console.warn('⚠️ Could not reach backend, loading user data from localStorage:', err.message);
+      console.warn('⚠️  Could not reach backend, loading user data from localStorage:', err.message);
       setError(err.message);
       setInvoices(loadFromStorage(storageKey));
     } finally {
@@ -87,7 +86,7 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
       })
       .catch((err) => {
         if (!ignore) {
-          console.warn('⚠️ Could not reach backend, loading user data from localStorage:', err.message);
+          console.warn('⚠️  Could not reach backend, loading user data from localStorage:', err.message);
           setError(err.message);
           setInvoices(loadFromStorage(storageKey));
           setIsLoading(false);
@@ -99,14 +98,16 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
   }, [storageKey, user?.id]);
 
   // ── Add invoice ───────────────────────────────────────────────────────────
+  // Invoice number is generated server-side (atomic counter). Do NOT pass
+  // invoiceNumber from the client — the server will set it and return it.
   const addInvoice = async (invoiceData) => {
-    const nextNumber = generateNextNumber(invoices, config.numberPrefix);
     const payload = {
       ...invoiceData,
-      invoiceNumber: nextNumber,
       createdDate: invoiceData.createdDate || new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString(),
     };
+    // Remove any client-generated invoiceNumber so the server owns sequencing
+    delete payload.invoiceNumber;
 
     try {
       const saved = await createInvoice(payload);
@@ -118,13 +119,7 @@ export const InvoiceProvider = ({ children, config = defaultInvoiceConfig }) => 
       return saved;
     } catch (err) {
       console.error('Failed to save invoice to MongoDB:', err.message);
-      const localInvoice = { ...payload, id: Date.now().toString() };
-      setInvoices((prev) => {
-        const updated = [localInvoice, ...prev];
-        saveToStorage(storageKey, updated);
-        return updated;
-      });
-      return localInvoice;
+      throw err; // surface the error so the form can display it
     }
   };
 

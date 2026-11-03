@@ -2,18 +2,18 @@
 
 **Location**: `src/modules/invoice/`  
 **Routes**: 
-- `/invoice` — Invoice list & quick create
+- `/invoice` — Invoice list, filtering, search, metrics, and create modal
 - `/invoice/:id` — Invoice detail view & print preview
 - `/invoice/:id/edit` — Invoice edit form  
-**Status**: Fully integrated — MongoDB persistence + localStorage fallback + JWT auth  
+**Status**: Production Ready — MongoDB persistence + Atomic Counter + Server-side sequencing + JWT Auth  
 
 ---
 
 ## 1. Overview
 
-The **Invoice Module** manages the lifecycle of tax invoices in InvoSaaS. It provides comprehensive invoice generation, line-item calculations, automated GST computation, PDF print styling, status tracking, and export features.
+The **Invoice Module** manages the lifecycle of tax invoices in InvoSaaS. It provides comprehensive invoice generation, dynamic line-item SAC mapping, automated GST computation (CGST + SGST vs. IGST based on client state code), PDF print styling, status synchronization, and Excel export.
 
-All invoice operations synchronize with the MongoDB backend API via `/api/invoices` and are isolated to the authenticated user.
+All invoice operations synchronize with the MongoDB backend API via `/api/invoices` and are strictly isolated to the authenticated user (`userId`).
 
 ---
 
@@ -22,7 +22,7 @@ All invoice operations synchronize with the MongoDB backend API via `/api/invoic
 ```text
 src/modules/invoice/
 ├── components/
-│   ├── InvoiceForm.jsx         # Adapter component wrapping DocumentForm
+│   ├── InvoiceForm.jsx         # Client-filtering & proforma reference binder
 │   ├── InvoicePreview.jsx      # Adapter component wrapping DocumentPreview
 │   └── InvoiceTable.jsx        # Adapter component wrapping DocumentTable
 ├── context/
@@ -32,9 +32,9 @@ src/modules/invoice/
 │   ├── InvoiceEditPage.jsx     # Edit page for an existing invoice
 │   └── InvoicePage.jsx         # Listing, filtering, search, pagination, and modal creation
 ├── utils/
-│   ├── invoiceNumber.js        # Invoice number formatting utilities
-│   └── storage.js              # LocalStorage sync helpers
-├── invoiceConfig.js            # Default configuration (prefixes, currency, default metadata)
+│   ├── invoiceNumber.js        # Formatting helper
+│   └── storage.js              # LocalStorage cache fallback
+├── invoiceConfig.js            # Default configuration (prefixes, currency, metadata)
 └── index.js                    # Barrel exports
 ```
 
@@ -42,24 +42,25 @@ src/modules/invoice/
 
 ## 3. Configuration: `invoiceConfig.js`
 
-Configures defaults and naming for the invoice engine:
+Configures defaults, prefix, and schema rules for the invoice engine:
 
 ```javascript
 const invoiceConfig = {
   title: "Invoice",
   localStorageKey: "invoices",
-  numberPrefix: "FS/26-27/",
+  numberPrefix: "FSIN-",
   currency: "₹",
   companyDetails: {
     name: "Futentia Solutions Private Limited",
-    address: "03, Pratham Meadows, Nr. Navarachana Int. School, Bhayli, Vadodara, Gujarat - 391410.",
+    address: "SWC Hub, 106, Futentia Solutions, Vasna-Bhayli Main Rd, opp. Rajpath Complex, Bhayli, Vadodara, Gujarat - 391410.",
     email: "info@futentia.com",
-    phone: "+91 8866778903",
+    phone: "+91 7990321150",
     website: "www.futentia.com",
     gstin: "24AAGCF9740H1ZI",
   },
   fields: [
     "invoiceNumber",
+    "referenceNo",
     "name",
     "address",
     "phone",
@@ -88,45 +89,69 @@ Provided by `<InvoiceProvider>` at the root of the app.
 | `invoices` | `Array<Invoice>` | List of all invoices for the authenticated user |
 | `isLoading` | `boolean` | `true` during API sync |
 | `error` | `string \| null` | Error string if API request fails |
-| `addInvoice(invoiceData)` | `Async Function` | Generates next sequence number, saves to MongoDB, returns new record |
+| `addInvoice(invoiceData)` | `Async Function` | Posts to MongoDB API; sequence number (`FSIN-xxxx`) is generated atomically by the server |
 | `updateInvoice(id, data)` | `Async Function` | Updates invoice in MongoDB and local state |
 | `deleteInvoice(id)` | `Async Function` | Deletes invoice from MongoDB and local state |
-| `getInvoice(id)` | `Function` | Finds an invoice by `_id` or `id` |
-| `getNextInvoiceNumber()` | `Function` | Calculates the next sequential invoice number |
-| `loadInvoices()` | `Async Function` | Re-fetches all invoices from the server |
+| `getInvoice(id)` | `Function` | Finds an invoice by `_id` or `invoiceNumber` |
+| `reload()` | `Async Function` | Re-fetches all invoices from the server |
 
-### Auto-Sequencing
-Invoice numbers are automatically formatted as `<prefix><3-digit-padded-number>` (e.g. `FS/26-27/001`, `FS/26-27/002`). The sequence increments based on the highest existing number in the user's invoice list.
+### Atomic Server-Side Sequencing
+To eliminate duplicate IDs and race conditions, invoice numbers are **not** generated on the client. 
+When `POST /api/invoices` is executed, the backend increments an atomic counter (`counters` collection, key: `invoice_{userId}`) using MongoDB's `findOneAndUpdate` with `$inc: { seq: 1 }`. The resulting formatted number (e.g., `FSIN-0001`, `FSIN-0002`) is assigned authoritatively.
 
 ---
 
-## 5. Invoice Data Schema
+## 5. Proforma Linking & Duplicate Protection
+
+When creating an invoice from client proformas:
+1. `InvoiceForm.jsx` scans all existing invoices for:
+   - `proformaRefs` (array of linked proforma numbers)
+   - `referenceNo` (comma-separated reference list)
+   - `sourceProformaNumber` (single reference from 1-click conversion)
+2. In `DocumentForm.jsx`, proformas that are:
+   - Status: `Approved` or `Paid`, OR
+   - Already linked to an existing invoice
+   are separated into `invoicedProformas`.
+3. In the UI:
+   - **Available Proformas**: Displayed as selectable cards with check boxes.
+   - **Invoiced Proformas**: Collapsed under an accordion, rendered in a muted gray container with a lock icon (`FiLock`), tooltip explanation, and `pointer-events-none` so they cannot be selected again.
+
+---
+
+## 6. Invoice Data Schema
 
 ```typescript
 interface Invoice {
   _id: string;               // MongoDB document ID
-  id?: string;               // Fallback ID for offline mode
-  userId: string;            // Owner user ID
-  invoiceNumber: string;     // e.g. "FS/26-27/001"
+  id?: string;               // Normalized ID
+  userId: string;            // Owner user ID (multi-tenancy)
+  invoiceNumber: string;     // e.g. "FSIN-0001" (server-generated)
+  referenceNo?: string;      // Comma-separated proforma numbers or PO numbers
+  proformaRefs?: string[];   // Array of referenced proforma numbers
+  sourceProformaNumber?: string; // Direct source proforma if converted
+  selectedClientId?: string; // Client reference ID
+  clientId?: string;         // e.g. "CLT0001"
   name: string;              // Client business name
   email: string;             // Client email address
   phone: string;             // Client phone number
   address: string;           // Client billing address
-  gstin?: string;            // Client GST Identification Number
+  gstin?: string;            // Client GSTIN
   createdDate: string;       // YYYY-MM-DD
   dueDate: string;           // YYYY-MM-DD
-  description?: string;      // Summary description of work
-  rate?: number;             // Legacy single-item rate
-  lineItems?: Array<{        // Itemized breakdown
+  lineItems: Array<{
     sacId?: string;          // _id of the sac_codes master record
-    sacCode?: string;        // SAC code at the time of saving, e.g. "998314"
-    sacDescription?: string; // Master description at the time of saving
-    description: string;     // Text printed on the invoice
-    qty?: number;            // Missing on older records, which count as 1
-    rate: number;
-    amount?: number;         // qty × rate
+    sacCode?: string;        // SAC code (e.g. "998314")
+    sacDescription?: string; // Master description
+    description: string;     // Line item description
+    qty: string | number;    // Quantity
+    rate: string | number;   // Unit rate
+    amount?: number;         // qty * rate
   }>;
-  status: 'Paid' | 'Pending' | 'Overdue' | 'Draft';
+  adjustment?: number;       // Discount / Adjustment amount
+  subtotal?: number;
+  taxAmount?: number;
+  total?: number;
+  status: 'Paid' | 'Pending' | 'Overdue';
   createdAt: string;         // ISO timestamp
   updatedAt: string;         // ISO timestamp
 }
@@ -134,35 +159,22 @@ interface Invoice {
 
 ---
 
-## 6. Page Workflows
+## 7. Page Workflows
 
 ### 1. `InvoicePage.jsx` (`/invoice`)
-- Displays statistics summary banner.
-- Features `DocumentTable` with client search, date range filter, and status filter.
-- Top actions:
-  - **Create Invoice**: Opens a slide-over/modal with `InvoiceForm`.
-  - **Export**: Generates Excel / CSV export of filtered records via `ExportButton`.
-- Row actions: View (`/invoice/:id`), Edit (`/invoice/:id/edit`), Delete (with confirmation).
+- Shows summary KPI cards: Total Revenue, Paid Invoices, Pending Invoices, and Overdue count.
+- Search by customer name, email, or invoice number.
+- Filter by fiscal year and created date.
+- Modal invoice creation supporting client auto-fill and proforma multi-selection.
+- Export to Excel via `ExportButton`.
 
 ### 2. `InvoiceDetailPage.jsx` (`/invoice/:id`)
 - Rendered using `DocumentPreview`.
-- Displays company header, client billing details, line items table, GST summary (CGST/SGST or IGST), amount in words, bank details, and digital signature.
-- Action Bar:
-  - **Print / Save as PDF**: Uses `@media print` CSS styling to produce a clean letterhead.
-  - **Edit**: Navigates to `/invoice/:id/edit`.
-  - **Back**: Returns to `/invoice`.
+- Displays company header, client billing details, line items table, statutory SAC breakdown, GST summary (CGST/SGST or IGST based on state code), amount in words, bank details, and digital signature.
+- Includes **Print / Save as PDF** styling via `@media print`.
+- "Send Email" action dispatches formatted invoice directly to customer's email via backend SMTP.
 
 ### 3. `InvoiceEditPage.jsx` (`/invoice/:id/edit`)
 - Fetches invoice by route parameter `:id`.
-- Pre-populates `DocumentForm`.
-- On submit, calls `updateInvoice(id, formData)` and navigates back to detail or list.
-
----
-
-## 7. Reusable Component Adapters
-
-The components in `src/modules/invoice/components/` are lightweight adapters connecting `invoiceConfig` and `InvoiceContext` to the generic `src/core/documentEngine/`:
-
-- **`InvoiceForm`**: Supplies `invoiceConfig.fields` to `DocumentForm`.
-- **`InvoicePreview`**: Supplies company branding and layout options to `DocumentPreview`.
-- **`InvoiceTable`**: Supplies table columns and actions to `DocumentTable`.
+- Pre-populates `DocumentForm`. Note: The invoice's own `invoiceNumber` remains immutable.
+- Saves updates directly to MongoDB.

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, InputField, TextAreaField, MultiSelectDropdown, SearchableSelect } from '../components';
 import { generateNextNumber, getLineAmount, getLineQty, getLinesSubtotal } from '../utils';
 import { useClients } from '../../modules/client';
@@ -94,7 +94,8 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
   // Determines if a proforma has already been invoiced (Approved/Paid or linked to an existing invoice)
   const isProformaInvoiced = (pf) => {
     if (!pf) return false;
-    if (pf.status === 'Approved' || pf.status === 'Paid') return true;
+    const st = (pf.status || '').trim().toLowerCase();
+    if (st === 'approved' || st === 'paid') return true;
     const pfNum = (pf.invoiceNumber || pf.proformaNumber || '').trim();
     if (!pfNum) return false;
     return (items || []).some((inv) => {

@@ -6,17 +6,41 @@ const { seedSacCodes } = require('./models/SacCode');
 
 const PORT = process.env.PORT || 5001;
 
-const server = http.createServer(app);
+// ─── Start server only after DB is ready ─────────────────────────────────────
+(async () => {
+  try {
+    const dbClient = await connectDB();
+    app.locals.dbClient = dbClient;
 
-server.listen(PORT, '0.0.0.0', async () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  app.locals.dbClient = await connectDB();
-
-  if (app.locals.dbClient) {
-    try {
-      await seedSacCodes(app.locals.dbClient);
-    } catch (err) {
-      console.error('❌ SAC code seeding failed:', err.message);
+    if (dbClient) {
+      try {
+        await seedSacCodes(dbClient);
+      } catch (err) {
+        console.error('⚠️  SAC code seeding failed:', err.message);
+      }
     }
+
+    const server = http.createServer(app);
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
+
+    // Graceful shutdown
+    const shutdown = (signal) => {
+      console.log(`\n${signal} received. Shutting down gracefully...`);
+      server.close(async () => {
+        if (dbClient) {
+          await dbClient.close();
+          console.log('✅ MongoDB connection closed.');
+        }
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+  } catch (err) {
+    console.error('❌ Failed to start server:', err.message);
+    process.exit(1);
   }
-});
+})();

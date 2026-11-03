@@ -1,7 +1,62 @@
 const { ObjectId } = require('mongodb');
 const { getCollection, buildDocument, normalizeDoc } = require('../models/Invoice');
 
-// ─── GET /api/invoices ───────────────────────────────────────────────────────
+// ─── Atomic counter helpers (same pattern as proformaController) ──────────────
+
+/**
+ * Ensure the invoice counter exists for this user.
+ * On first run, scan existing invoices to find the current max number.
+ */
+async function ensureInvoiceCounterInitialized(dbClient, userId, prefix) {
+  const counters = dbClient.db().collection('counters');
+  const counterKey = `invoice_${userId}`;
+
+  const existing = await counters.findOne({ _id: counterKey });
+  if (existing) return; // already initialised
+
+  // Scan invoices to find the highest existing number
+  const col = dbClient.db().collection('invoices');
+  const docs = await col
+    .find({ userId, invoiceNumber: { $regex: `^${prefix}` } })
+    .project({ invoiceNumber: 1 })
+    .toArray();
+
+  let maxSeq = 0;
+  for (const doc of docs) {
+    const parts = doc.invoiceNumber?.split('-');
+    const seq = parseInt(parts?.[1] || '0', 10);
+    if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+  }
+
+  // Insert with upsert so concurrent calls are safe
+  await counters.updateOne(
+    { _id: counterKey },
+    { $setOnInsert: { seq: maxSeq } },
+    { upsert: true }
+  );
+}
+
+/**
+ * Atomically increment the invoice counter and return the next formatted number.
+ * e.g. "FSIN-0003"
+ */
+async function generateInvoiceNumber(dbClient, userId, prefix) {
+  await ensureInvoiceCounterInitialized(dbClient, userId, prefix);
+
+  const counters = dbClient.db().collection('counters');
+  const counterKey = `invoice_${userId}`;
+
+  const result = await counters.findOneAndUpdate(
+    { _id: counterKey },
+    { $inc: { seq: 1 } },
+    { returnDocument: 'after', upsert: true }
+  );
+
+  const seq = result.seq;
+  return `${prefix}${String(seq).padStart(4, '0')}`;
+}
+
+// ─── GET /api/invoices ────────────────────────────────────────────────────────
 const getAllInvoices = async (req, res) => {
   try {
     const col = getCollection(req.app.locals.dbClient);
@@ -15,20 +70,31 @@ const getAllInvoices = async (req, res) => {
   }
 };
 
-// ─── POST /api/invoices ──────────────────────────────────────────────────────
+// ─── POST /api/invoices ───────────────────────────────────────────────────────
 const createInvoice = async (req, res) => {
   try {
-    const col = getCollection(req.app.locals.dbClient);
-    const doc = buildDocument({ ...req.body, userId: req.user?.id });
+    const dbClient = req.app.locals.dbClient;
+    const userId = req.user?.id;
+
+    // Always generate the invoice number server-side using the atomic counter
+    const prefix = 'FSIN-';
+    const invoiceNumber = await generateInvoiceNumber(dbClient, userId, prefix);
+
+    const col = getCollection(dbClient);
+    const doc = buildDocument({
+      ...req.body,
+      invoiceNumber, // override whatever the client sent
+      userId,
+    });
     const result = await col.insertOne(doc);
-    res.status(201).json({ id: result.insertedId.toString(), ...doc });
+    res.status(201).json(normalizeDoc({ _id: result.insertedId, ...doc }));
   } catch (err) {
     console.error('[InvoiceController] createInvoice:', err.message);
     res.status(500).json({ error: 'Failed to create invoice' });
   }
 };
 
-// ─── PUT /api/invoices/:id ───────────────────────────────────────────────────
+// ─── PUT /api/invoices/:id ────────────────────────────────────────────────────
 const updateInvoice = async (req, res) => {
   const { id } = req.params;
 
@@ -38,7 +104,8 @@ const updateInvoice = async (req, res) => {
 
   try {
     const col = getCollection(req.app.locals.dbClient);
-    const { _id, id: _frontendId, ...updateData } = req.body;
+    // Strip immutable fields from the update payload
+    const { _id, id: _frontendId, invoiceNumber: _num, ...updateData } = req.body;
     const userId = req.user?.id;
     const query = userId ? { _id: new ObjectId(id), userId } : { _id: new ObjectId(id) };
 
@@ -57,7 +124,7 @@ const updateInvoice = async (req, res) => {
   }
 };
 
-// ─── DELETE /api/invoices/:id ────────────────────────────────────────────────
+// ─── DELETE /api/invoices/:id ─────────────────────────────────────────────────
 const deleteInvoice = async (req, res) => {
   const { id } = req.params;
 
