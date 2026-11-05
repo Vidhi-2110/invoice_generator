@@ -46,13 +46,15 @@ body {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm 6mm;
+    /* Margin is applied as body padding below instead, so it holds even when the
+       browser's print dialog is set to "Margins: None". */
+    margin: 0;
   }
 
   :root {
-    /* A4 is 297mm tall; minus the 8mm top and bottom page margins is 281mm.
+    /* A4 is 297mm tall; minus 12mm padding top and bottom is 273mm.
        Kept 1mm short so rounding never pushes the card onto a blank second page. */
-    --a4-card-height: 280mm;
+    --a4-card-height: 272mm;
   }
 
   /* The app shell is a fixed-height, clipped layout; let the document flow for print */
@@ -63,7 +65,8 @@ body {
   }
   main {
     overflow: visible !important;
-    padding: 0 !important;
+    padding: 12mm 10mm !important;
+    box-sizing: border-box;
   }
   .lg\:pl-72 {
     padding-left: 0 !important;

@@ -33,7 +33,7 @@ Designed with a **decoupled domain-driven modular structure** on the frontend an
 - 🔐 **User Authentication & Authorization**: Secure registration and login using JSON Web Tokens (JWT) and `bcryptjs` password hashing with rate-limited auth endpoints.
 - 📊 **Executive Business Dashboard**: Real-time KPI metrics displaying total revenue, paid vs. pending receivables, active proforma pipelines, and monthly performance.
 - 🧾 **Standard Tax Invoicing (`/invoice`)**:
-  - Full CRUD operations with server-enforced atomic numbering (`FSIN-0001`, `FSIN-0002`...).
+  - Full CRUD operations with server-enforced atomic numbering (`FS/26-27/0001`, `FS/26-27/0002`...).
   - Dynamic line items manager with statutory SAC code lookups, real-time GST computation (CGST+SGST or IGST based on state codes), and amount in words conversion.
   - Multi-proforma linking with automated locking of already-invoiced/approved estimates.
   - Direct customer email dispatch with professional HTML invoice templates via SMTP.
@@ -142,7 +142,7 @@ To prevent duplicate invoice and proforma IDs across concurrent sessions:
 
 ### **Invoices** *(Protected)*
 - `GET /api/invoices` — List invoices.
-- `POST /api/invoices` — Create invoice (assigned `FSIN-xxxx` automatically).
+- `POST /api/invoices` — Create invoice (assigned `FS/26-27/xxxx` automatically).
 - `PUT /api/invoices/:id` — Update invoice (number is immutable).
 - `DELETE /api/invoices/:id` — Delete invoice.
 

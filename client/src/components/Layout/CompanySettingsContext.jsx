@@ -10,6 +10,7 @@ const SERVER_ASSET_KEYS = [
   'logo', 'esign', 'stamp',
   'companyName', 'phone', 'email', 'address',
   'bankName', 'ifscCode', 'branchName', 'accountNumber', 'accountName',
+  'invoicePrefix', 'proformaPrefix',
 ];
 
 const BASE_STORAGE_KEY = 'invosaas_company_settings';
@@ -36,6 +37,10 @@ export const defaultSettings = {
   branchName: '',
   accountNumber: '',
   accountName: '',
+
+  // Document numbering (blank = default)
+  invoicePrefix: '',
+  proformaPrefix: '',
 
   // Documents
   esign: null,

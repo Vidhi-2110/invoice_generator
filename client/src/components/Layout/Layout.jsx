@@ -9,7 +9,7 @@ const Layout = () => {
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-100 overflow-hidden">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
 

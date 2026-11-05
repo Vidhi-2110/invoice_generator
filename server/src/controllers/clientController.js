@@ -38,7 +38,8 @@ const updateClient = async (req, res) => {
 
   try {
     const col = getCollection(req.app.locals.dbClient);
-    const { _id, id: _frontendId, ...updateData } = req.body;
+    // The Unique Client ID is assigned once at creation and is never editable
+    const { _id, id: _frontendId, clientId: _clientId, invoiceNumber: _number, ...updateData } = req.body;
     const userId = req.user?.id;
     const query = userId ? { _id: new ObjectId(id), userId } : { _id: new ObjectId(id) };
 

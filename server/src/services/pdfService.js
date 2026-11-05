@@ -139,7 +139,9 @@ function resolveImageSource(customVal, defaultFilename) {
  * @param {object} company  – Company details
  * @returns {Promise<Buffer>}
  */
-function generateProformaPdfBuffer(proforma, company = {}) {
+function generateProformaPdfBuffer(proforma, company = {}, opts = {}) {
+  const isInvoice = opts.type === 'invoice';
+  const docLabel = isInvoice ? 'Invoice' : 'Proforma Invoice';
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({
@@ -147,9 +149,9 @@ function generateProformaPdfBuffer(proforma, company = {}) {
         margin: 0,
         bufferPages: true,
         info: {
-          Title: `Proforma Invoice ${proforma.invoiceNumber || ''}`,
+          Title: `${docLabel} ${proforma.invoiceNumber || ''}`,
           Author: company.name || process.env.COMPANY_NAME || 'Futentia Solutions',
-          Subject: `Proforma Invoice ${proforma.invoiceNumber || ''}`,
+          Subject: `${docLabel} ${proforma.invoiceNumber || ''}`,
         },
       });
 
@@ -245,8 +247,15 @@ function generateProformaPdfBuffer(proforma, company = {}) {
       const logoSource = resolveImageSource(company.logo, 'futentia_icon.png') || resolveImageSource(null, 'logo.png');
       if (logoSource) {
         try {
-          doc.image(logoSource, contentX, leftY, { width: 40, height: 40 });
-          leftY += 46;
+          // Keep the logo's own proportions inside a larger box (a wide logo is not squashed into a square)
+          const LOGO_MAX_W = 150;
+          const LOGO_MAX_H = 64;
+          const img = doc.openImage(logoSource);
+          const scale = Math.min(LOGO_MAX_W / img.width, LOGO_MAX_H / img.height);
+          const logoW = img.width * scale;
+          const logoH = img.height * scale;
+          doc.image(img, contentX, leftY, { width: logoW, height: logoH });
+          leftY += logoH + 8;
         } catch (err) {
           console.warn('[PdfService] Could not render logo image:', err.message);
           leftY += 10;
@@ -293,7 +302,7 @@ function generateProformaPdfBuffer(proforma, company = {}) {
 
       // Title: "PROFORMA INVOICE"
       doc.font(fontBold).fontSize(22);
-      const titleText = 'PROFORMA INVOICE';
+      const titleText = docLabel.toUpperCase();
       const titleW = doc.widthOfString(titleText);
       const titleX = rightX - titleW;
 
@@ -306,7 +315,7 @@ function generateProformaPdfBuffer(proforma, company = {}) {
 
       // PF Invoice No. (mixed bold label + regular value without overlap)
       const invNum = proforma.invoiceNumber || 'FSPI-0001';
-      const invLbl = 'PF Invoice No.: ';
+      const invLbl = isInvoice ? 'Invoice No.: ' : 'PF Invoice No.: ';
       doc.font(fontBold).fontSize(8.5);
       const invLblW = doc.widthOfString(invLbl);
       doc.font(fontRegular).fontSize(8.5);
@@ -399,7 +408,7 @@ function generateProformaPdfBuffer(proforma, company = {}) {
       doc.font(fontBold).fontSize(8.5).fillColor(brandColor);
       doc.text('SR. NO.', colSrX, curY);
       doc.text('DESCRIPTION OF SERVICE', colDescX, curY);
-      doc.text('SAC CODE', colSacX, curY);
+      doc.text('HSN/SAC', colSacX, curY);
       doc.text('QTY', colQtyX, curY, { width: colQtyW, align: 'right' });
       doc.text('RATE', colRateX, curY, { width: colRateW, align: 'right' });
       doc.text('AMOUNT', colAmtX, curY, { width: colAmtW, align: 'right' });

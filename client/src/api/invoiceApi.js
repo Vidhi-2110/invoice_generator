@@ -23,6 +23,19 @@ export const fetchInvoices = () =>
     headers: getAuthHeaders(),
   }).then(handle);
 
+/** Peek at the number the next invoice will be given (does not reserve it) */
+export const fetchNextInvoiceNumber = () =>
+  fetch(`${BASE}/api/invoices/next-number`, {
+    headers: getAuthHeaders(),
+  }).then(handle);
+
+/** Email the invoice (with PDF attached) to the client; also used to resend */
+export const sendInvoiceEmailApi = (id) =>
+  fetch(`${BASE}/api/invoices/${id}/send-email`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  }).then(handle);
+
 /** Create a new invoice for the authenticated user */
 export const createInvoice = (invoice) =>
   fetch(`${BASE}/api/invoices`, {

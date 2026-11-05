@@ -90,7 +90,8 @@ const DashboardPage = ({ invoices = [], proformaInvoices = [], config = defaultD
       value: formatCurrency(totalPaidAmt),
       sub: `${approvedProformas.length} approved proformas · ${paidInvoices.length} paid invoices`,
       Icon: FiTrendingUp,
-      colors: 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
+      card: 'bg-emerald-50 border-emerald-100',
+      colors: 'bg-white text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
       badge: 'All Collected',
       badgeColor: 'bg-emerald-100 text-emerald-800',
     },
@@ -99,7 +100,8 @@ const DashboardPage = ({ invoices = [], proformaInvoices = [], config = defaultD
       value: formatCurrency(approvedProformasAmt),
       sub: `${approvedProformas.length} proforma${approvedProformas.length !== 1 ? 's' : ''} approved (paid)`,
       Icon: FiCheckCircle,
-      colors: 'bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white',
+      card: 'bg-sky-50 border-sky-100',
+      colors: 'bg-white text-sky-600 group-hover:bg-sky-600 group-hover:text-white',
       badge: 'Proforma',
       badgeColor: 'bg-sky-100 text-sky-800',
     },
@@ -108,7 +110,8 @@ const DashboardPage = ({ invoices = [], proformaInvoices = [], config = defaultD
       value: formatCurrency(paidInvoicesAmt),
       sub: `${paidInvoices.length} invoice${paidInvoices.length !== 1 ? 's' : ''} paid`,
       Icon: FiFileText,
-      colors: 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
+      card: 'bg-indigo-50 border-indigo-100',
+      colors: 'bg-white text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
       badge: 'Invoice',
       badgeColor: 'bg-indigo-100 text-indigo-800',
     },
@@ -117,21 +120,24 @@ const DashboardPage = ({ invoices = [], proformaInvoices = [], config = defaultD
       value: formatCurrency(totalPendingAmt),
       sub: `${pendingProformas.length} proformas · ${pendingInvoices.length} invoices pending`,
       Icon: FiClock,
-      colors: 'bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white',
+      card: 'bg-amber-50 border-amber-100',
+      colors: 'bg-white text-amber-600 group-hover:bg-amber-600 group-hover:text-white',
     },
     {
       label: 'Pending Proforma Amt',
       value: formatCurrency(pendingProformasAmt),
       sub: `${pendingProformas.length} awaiting approval`,
       Icon: FiAlertCircle,
-      colors: 'bg-rose-50 text-rose-500 group-hover:bg-rose-500 group-hover:text-white',
+      card: 'bg-rose-50 border-rose-100',
+      colors: 'bg-white text-rose-500 group-hover:bg-rose-500 group-hover:text-white',
     },
     {
       label: 'Total Documents',
       value: `${totalInvoicesCount} Invoices / ${totalProformasCount} Proformas`,
       sub: `${totalInvoicesCount + totalProformasCount} total active records`,
       Icon: FiBookOpen,
-      colors: 'bg-violet-50 text-violet-600 group-hover:bg-violet-600 group-hover:text-white',
+      card: 'bg-violet-50 border-violet-100',
+      colors: 'bg-white text-violet-600 group-hover:bg-violet-600 group-hover:text-white',
     },
   ];
 
@@ -156,11 +162,11 @@ const DashboardPage = ({ invoices = [], proformaInvoices = [], config = defaultD
           </button>
 
           <button
-            onClick={() => navigate(config.invoiceRoute || '/invoice')}
+            onClick={() => navigate(config.invoiceRoute || '/invoice', { state: { openForm: true } })}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-semibold text-white shadow-md shadow-indigo-600/10 active:scale-95 transition-all"
           >
             <FiPlusCircle size={15} />
-            <span>Issue Invoice</span>
+            <span>Create Invoice</span>
           </button>
         </div>
       </div>
@@ -172,7 +178,7 @@ const DashboardPage = ({ invoices = [], proformaInvoices = [], config = defaultD
           return (
             <div
               key={stat.label}
-              className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group"
+              className={`border rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group ${stat.card}`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

@@ -21,7 +21,10 @@ const ClientPage = () => {
 
   const handleSave = (clientData) => {
     if (clientToEdit) {
-      updateClient(clientToEdit.id, clientData);
+      // The Unique Client ID is fixed once created
+      const editable = { ...clientData };
+      delete editable.clientId;
+      updateClient(clientToEdit.id, editable);
     } else {
       addClient(clientData);
     }

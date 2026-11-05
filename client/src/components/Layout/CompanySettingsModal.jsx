@@ -5,26 +5,7 @@ import {
   FiType, FiTag, FiZoomIn, FiZoomOut, FiRotateCw, FiCrop, FiAlertCircle,
 } from 'react-icons/fi';
 import { useCompanySettings } from './CompanySettingsContext';
-
-/* ─── Canvas crop helper ──────────────────────────────────────────────────── */
-const getCroppedImg = (imageSrc, pixelCrop, rotation = 0) =>
-  new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      const SIZE = 200;
-      const canvas = document.createElement('canvas');
-      canvas.width = SIZE;
-      canvas.height = SIZE;
-      const ctx = canvas.getContext('2d');
-      ctx.translate(SIZE / 2, SIZE / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
-      ctx.translate(-SIZE / 2, -SIZE / 2);
-      ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, SIZE, SIZE);
-      resolve(canvas.toDataURL('image/png', 0.95));
-    };
-    image.onerror = reject;
-    image.src = imageSrc;
-  });
+import { getCroppedImg } from '../../core/utils';
 
 /* ─── Mini Logo Cropper ───────────────────────────────────────────────────── */
 const LogoCropper = ({ imageSrc, onConfirm, onCancel }) => {
@@ -40,7 +21,7 @@ const LogoCropper = ({ imageSrc, onConfirm, onCancel }) => {
     if (!croppedAreaPixels) return;
     setProcessing(true);
     try {
-      const result = await getCroppedImg(imageSrc, croppedAreaPixels, rotation);
+      const result = await getCroppedImg(imageSrc, croppedAreaPixels, rotation, 400);
       onConfirm(result);
     } finally {
       setProcessing(false);
@@ -65,7 +46,8 @@ const LogoCropper = ({ imageSrc, onConfirm, onCancel }) => {
           <Cropper
             image={imageSrc}
             crop={crop} zoom={zoom} rotation={rotation} aspect={1}
-            cropShape="round" showGrid={false}
+            minZoom={0.5} restrictPosition={false}
+            cropShape="rect" showGrid={false}
             onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete}
             style={{
               cropAreaStyle: { border: '3px solid #6366f1', boxShadow: '0 0 0 9999px rgba(15,23,42,0.65)' },
@@ -76,8 +58,8 @@ const LogoCropper = ({ imageSrc, onConfirm, onCancel }) => {
         <div className="px-4 py-3 space-y-3">
           {/* Zoom */}
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setZoom(z => Math.max(1, +(z - 0.1).toFixed(2)))} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100"><FiZoomOut size={14} /></button>
-            <input type="range" min={1} max={3} step={0.02} value={zoom} onChange={e => setZoom(Number(e.target.value))} className="flex-1 h-1.5 rounded-full accent-indigo-600 cursor-pointer" />
+            <button type="button" onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(2)))} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100"><FiZoomOut size={14} /></button>
+            <input type="range" min={0.5} max={3} step={0.02} value={zoom} onChange={e => setZoom(Number(e.target.value))} className="flex-1 h-1.5 rounded-full accent-indigo-600 cursor-pointer" />
             <button type="button" onClick={() => setZoom(z => Math.min(3, +(z + 0.1).toFixed(2)))} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100"><FiZoomIn size={14} /></button>
           </div>
           {/* Rotate */}

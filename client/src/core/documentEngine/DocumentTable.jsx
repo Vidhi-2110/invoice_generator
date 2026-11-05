@@ -4,6 +4,7 @@ import { Button, StatusBadge } from '../components';
 import { formatCurrency, formatDate } from '../utils';
 import { FiEye, FiTrash2, FiPrinter, FiFolderPlus, FiSearch, FiCalendar, FiX, FiFileText, FiMail, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import { sendProformaEmailApi } from '../../api/proformaApi';
+import { sendInvoiceEmailApi } from '../../api/invoiceApi';
 
 const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, onConvertToInvoice }) => {
   // ── Email send state ────────────────────────────────────────────────────────
@@ -22,7 +23,7 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
 
     setEmailSending((prev) => ({ ...prev, [item.id]: true }));
     try {
-      const result = await sendProformaEmailApi(item.id);
+      const result = await (config.title?.toLowerCase().includes('proforma') ? sendProformaEmailApi : sendInvoiceEmailApi)(item.id);
       showToast('success', result.message || `Email sent to ${item.email}`);
       setEmailDone((prev) => ({ ...prev, [item.id]: true }));
       if (onUpdate) {
@@ -34,7 +35,7 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
     } finally {
       setEmailSending((prev) => ({ ...prev, [item.id]: false }));
     }
-  }, [emailSending, showToast, onUpdate]);
+  }, [emailSending, showToast, onUpdate, config.title]);
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -322,8 +323,8 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
 
-                      {/* Send Email — Proforma only */}
-                      {isProforma && (
+                      {/* Send Email to the client — Invoice and Proforma */}
+                      {item.email && (
                         <button
                           type="button"
                           onClick={(e) => handleSendEmail(e, item)}
@@ -344,7 +345,7 @@ const DocumentTable = ({ items = [], onDelete, onUpdate, onCreateClick, config, 
                               ? `Email sent${item.emailSentAt ? ` on ${formatDate(item.emailSentAt)}` : ''} to ${item.email} (Click to resend)`
                               : item.emailStatus === 'failed'
                               ? `Last email failed — Click to resend to ${item.email}`
-                              : `Send Proforma to ${item.email}`
+                              : `Send ${isProforma ? 'Proforma' : 'Invoice'} to ${item.email}`
                           }
                         >
                           {emailSending[item.id] ? (

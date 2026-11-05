@@ -3,6 +3,7 @@ const { dbCheck } = require('../middleware/dbCheck');
 const { protect } = require('../middleware/authMiddleware');
 const {
   getAllProformas,
+  getNextProformaNumber,
   createProforma,
   updateProforma,
   deleteProforma,
@@ -16,6 +17,7 @@ const router = express.Router();
 router.get('/:id/download', dbCheck, downloadProformaPdf);
 router.get('/download/:id', dbCheck, downloadProformaPdf);
 
+router.get('/next-number',        dbCheck, protect, getNextProformaNumber);
 router.get('/',                   dbCheck, protect, getAllProformas);
 router.post('/',                  dbCheck, protect, createProforma);
 router.put('/:id',                dbCheck, protect, updateProforma);

@@ -39,7 +39,34 @@ function getTransporter() {
  * @param {object} company   – Sender company details { name, email, phone, address, logo, bankName, accountNumber, ifscCode, branchName, accountName }
  * @returns {string} HTML string
  */
-function buildProformaEmailHtml(proforma, company = {}) {
+// Wording that differs between a proforma and a tax invoice
+function getDocWording(opts = {}) {
+  const isInvoice = opts.type === 'invoice';
+  return isInvoice
+    ? {
+        isInvoice,
+        label: 'Invoice',
+        upper: 'INVOICE',
+        dueLabel: 'Due Date',
+        route: 'invoice',
+        intro: 'Please find below the invoice details for',
+        notice: 'Please arrange payment on or before the due date using the bank details below, and quote the invoice number as the payment reference.',
+        textNotice: 'Please arrange payment on or before the due date using the bank details below.',
+      }
+    : {
+        isInvoice,
+        label: 'Proforma Invoice',
+        upper: 'PROFORMA INVOICE',
+        dueLabel: 'Valid Until',
+        route: 'proforma-invoice',
+        intro: 'Please find below the preliminary proforma quotation details for',
+        notice: 'This is a proforma quotation issued for preliminary review and approval. It does not constitute a demand for payment until confirmed and converted into an official tax invoice.',
+        textNotice: 'This document is a proforma quotation for review and approval prior to final tax invoice issuance.',
+      };
+}
+
+function buildProformaEmailHtml(proforma, company = {}, opts = {}) {
+  const W = getDocWording(opts);
   const currency = '₹';
   const subtotal = getLinesSubtotal(proforma.lineItems);
   const gstRate  = 0.18;
@@ -61,11 +88,6 @@ function buildProformaEmailHtml(proforma, company = {}) {
   const bankAccount     = company.accountNumber   || process.env.BANK_ACCOUNT      || '000305027144';
   const bankIfsc        = company.ifscCode        || process.env.BANK_IFSC         || 'ICIC0000003';
   const bankBranch      = company.branchName      || process.env.BANK_BRANCH       || 'Main Branch';
-
-  // Direct PDF download URL
-  const backendUrl = (process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5001}`).replace(/\/$/, '');
-  const proformaId = proforma.id || proforma._id || proforma.invoiceNumber || '';
-  const downloadUrl = proformaId ? `${backendUrl}/api/proformas/${proformaId}/download` : backendUrl;
 
   // Status styling
   const statusRaw = proforma.status || 'Pending';
@@ -97,7 +119,7 @@ function buildProformaEmailHtml(proforma, company = {}) {
         <td style="padding:14px 18px;font-size:13px;color:#1e293b;font-weight:500;border-bottom:1px solid #edf2f7;line-height:1.5;">${li.description || '—'}${
           li.sacCode || getLineQty(li) !== 1
             ? `<div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">${[
-                li.sacCode ? `SAC: ${li.sacCode}` : '',
+                li.sacCode ? `HSN/SAC: ${li.sacCode}` : '',
                 getLineQty(li) !== 1 ? `Qty: ${getLineQty(li)} × ${currency}${fmt(li.rate || 0)}` : '',
               ].filter(Boolean).join(' · ')}</div>`
             : ''
@@ -112,7 +134,7 @@ function buildProformaEmailHtml(proforma, company = {}) {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Proforma Invoice ${proforma.invoiceNumber}</title>
+  <title>${W.label} ${proforma.invoiceNumber}</title>
 </head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 16px;">
@@ -131,7 +153,7 @@ function buildProformaEmailHtml(proforma, company = {}) {
               <tr>
                 <td valign="top" style="vertical-align:top;">
                   <div style="display:inline-block;background:rgba(99,102,241,0.22);border:1px solid rgba(129,140,248,0.35);padding:4px 10px;border-radius:6px;">
-                    <span style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#c7d2fe;line-height:1;">PROFORMA INVOICE</span>
+                    <span style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#c7d2fe;line-height:1;">${W.upper}</span>
                   </div>
                   <h1 style="margin:10px 0 0;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;line-height:1.2;white-space:nowrap;">${proforma.invoiceNumber}</h1>
                 </td>
@@ -177,7 +199,7 @@ function buildProformaEmailHtml(proforma, company = {}) {
                   <p style="margin:4px 0 0;font-size:13px;font-weight:700;color:#334155;white-space:nowrap;">${proforma.createdDate || '—'}</p>
                 </td>
                 <td style="padding:18px 8px 18px 16px;width:25%;border-right:1px solid #edf2f7;">
-                  <p style="margin:0;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Valid Until</p>
+                  <p style="margin:0;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">${W.dueLabel}</p>
                   <p style="margin:4px 0 0;font-size:13px;font-weight:700;color:#e11d48;white-space:nowrap;">${proforma.dueDate || '—'}</p>
                 </td>
                 <td style="padding:18px 0 18px 16px;width:25%;">
@@ -194,17 +216,8 @@ function buildProformaEmailHtml(proforma, company = {}) {
           <td style="padding:28px 36px 0;">
             <p style="margin:0;font-size:15px;color:#0f172a;font-weight:700;">Dear ${proforma.name || 'Valued Client'},</p>
             <p style="margin:8px 0 0;font-size:14px;color:#475569;line-height:1.6;">
-              Please find below the preliminary proforma quotation details for <strong>${proforma.invoiceNumber}</strong>. You can review the full Proforma invoice, verify line items, or download a printable PDF using the button below:
+              ${W.intro} <strong>${proforma.invoiceNumber}</strong>. A PDF copy is attached to this email for your records.
             </p>
-          </td>
-        </tr>
-
-        <!-- ── Download Button CTA ── -->
-        <tr>
-          <td style="padding:16px 36px 0;">
-            <a href="${downloadUrl}" target="_blank" style="display:inline-block;padding:11px 22px;background:#4f46e5;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;border-radius:8px;box-shadow:0 3px 6px -1px rgba(79, 70, 229, 0.25);">
-              &#128196; Download Proforma PDF
-            </a>
           </td>
         </tr>
 
@@ -314,7 +327,7 @@ function buildProformaEmailHtml(proforma, company = {}) {
           <td style="padding:20px 36px 0;">
             <div style="background:#f8fafc;border-left:3px solid #94a3b8;border-radius:0 8px 8px 0;padding:12px 16px;">
               <p style="margin:0;font-size:12px;color:#64748b;line-height:1.5;">
-                <strong style="color:#475569;">Notice:</strong> This is a proforma quotation issued for preliminary review and approval. It does not constitute a demand for payment until confirmed and converted into an official tax invoice.
+                <strong style="color:#475569;">Notice:</strong> ${W.notice}
               </p>
             </div>
           </td>
@@ -354,7 +367,8 @@ function buildProformaEmailHtml(proforma, company = {}) {
 }
 
 // ─── Plain-text fallback ──────────────────────────────────────────────────────
-function buildProformaEmailText(proforma, company = {}) {
+function buildProformaEmailText(proforma, company = {}, opts = {}) {
+  const W = getDocWording(opts);
   const currency = '₹';
   const subtotal = getLinesSubtotal(proforma.lineItems);
   const gstAmt = subtotal * 0.18;
@@ -369,13 +383,11 @@ function buildProformaEmailText(proforma, company = {}) {
   const bankIfsc        = company.ifscCode        || process.env.BANK_IFSC         || 'ICIC0000003';
   const bankBranch      = company.branchName      || process.env.BANK_BRANCH       || 'Main Branch';
 
-  const backendUrl = (process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5001}`).replace(/\/$/, '');
   const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
   const proformaId = proforma.id || proforma._id || proforma.invoiceNumber || '';
-  const downloadUrl = proformaId ? `${backendUrl}/api/proformas/${proformaId}/download` : backendUrl;
 
   const lines = [
-    `PROFORMA INVOICE — ${proforma.invoiceNumber}`,
+    `${W.upper} — ${proforma.invoiceNumber}`,
     `======================================`,
     ``,
     `From: ${companyName}`,
@@ -387,24 +399,21 @@ function buildProformaEmailText(proforma, company = {}) {
     ``,
     `Invoice No : ${proforma.invoiceNumber}`,
     `Issue Date : ${proforma.createdDate || '—'}`,
-    `Valid Until: ${proforma.dueDate || '—'}`,
+    `${W.dueLabel.padEnd(11)}: ${proforma.dueDate || '—'}`,
     `Status     : ${proforma.status || 'Pending'}`,
     ``,
-    `Download PDF Invoice: ${downloadUrl}`,
-    `Review Online       : ${frontendUrl}/proforma-invoice/${proformaId}`,
+    `Review Online       : ${frontendUrl}/${W.route}/${proformaId}`,
     ``,
     `LINE ITEMS`,
     `----------`,
     ...(proforma.lineItems || []).map(
-      (li, i) => `${i + 1}. ${li.description || '(no description)'}${li.sacCode ? ` [SAC: ${li.sacCode}]` : ''}${getLineQty(li) !== 1 ? ` (Qty: ${getLineQty(li)} x ${currency}${fmt(li.rate || 0)})` : ''}  —  ${currency}${fmt(getLineAmount(li))}`
+      (li, i) => `${i + 1}. ${li.description || '(no description)'}${li.sacCode ? ` [HSN/SAC: ${li.sacCode}]` : ''}${getLineQty(li) !== 1 ? ` (Qty: ${getLineQty(li)} x ${currency}${fmt(li.rate || 0)})` : ''}  —  ${currency}${fmt(getLineAmount(li))}`
     ),
     ``,
     `Subtotal : ${currency}${fmt(subtotal)}`,
     `GST 18%  : ${currency}${fmt(gstAmt)}`,
     adjustment !== 0 ? `Adjustment: ${adjustment > 0 ? '+' : ''}${currency}${fmt(adjustment)}` : null,
     `TOTAL    : ${currency}${fmt(total)}`,
-    ``,
-    `Download Link: ${downloadUrl}`,
     ``,
     `BANK & PAYMENT DETAILS`,
     `----------------------`,
@@ -414,7 +423,7 @@ function buildProformaEmailText(proforma, company = {}) {
     `IFSC Code     : ${bankIfsc}`,
     `Branch        : ${bankBranch}`,
     ``,
-    `Notice: This document is a proforma quotation for review and approval prior to final tax invoice issuance.`,
+    `Notice: ${W.textNotice}`,
     `Note: A PDF copy of this invoice has also been attached to this email.`,
     ``,
     `— ${companyName}`,
@@ -430,23 +439,24 @@ function buildProformaEmailText(proforma, company = {}) {
  * @param {object} [company]  – Optional sender company details
  * @returns {Promise<object>} – Nodemailer info object
  */
-async function sendProformaEmail(proforma, company = {}) {
+async function sendProformaEmail(proforma, company = {}, opts = {}) {
+  const W = getDocWording(opts);
   if (!proforma.email) {
-    throw new Error(`Proforma ${proforma.invoiceNumber} has no client email address.`);
+    throw new Error(`${W.label} ${proforma.invoiceNumber} has no client email address.`);
   }
 
   const transporter = getTransporter();
   const fromName    = company.name || process.env.COMPANY_NAME || 'Futentia Solutions';
   const fromEmail   = process.env.SMTP_USER;
-  const subject     = `Proforma Invoice ${proforma.invoiceNumber} from ${fromName}`;
+  const subject     = `${W.label} ${proforma.invoiceNumber} from ${fromName}`;
 
   // ── Generate PDF Attachment ──────────────────────────────────────────────
   const { generateProformaPdfBuffer } = require('./pdfService');
   let attachments = [];
   try {
-    const pdfBuffer = await generateProformaPdfBuffer(proforma, company);
+    const pdfBuffer = await generateProformaPdfBuffer(proforma, company, opts);
     attachments.push({
-      filename: `Proforma-Invoice-${proforma.invoiceNumber || 'doc'}.pdf`,
+      filename: `${W.label.replace(/ /g, '-')}-${String(proforma.invoiceNumber || 'doc').replace(/[\/]/g, '-')}.pdf`,
       content: pdfBuffer,
       contentType: 'application/pdf',
     });
@@ -459,8 +469,8 @@ async function sendProformaEmail(proforma, company = {}) {
     from    : `"${fromName}" <${fromEmail}>`,
     to      : proforma.email,
     subject,
-    text    : buildProformaEmailText(proforma, company),
-    html    : buildProformaEmailHtml(proforma, company),
+    text    : buildProformaEmailText(proforma, company, opts),
+    html    : buildProformaEmailHtml(proforma, company, opts),
     attachments,
   };
 
@@ -469,4 +479,6 @@ async function sendProformaEmail(proforma, company = {}) {
   return info;
 }
 
-module.exports = { sendProformaEmail };
+const sendInvoiceEmail = (invoice, company = {}) => sendProformaEmail(invoice, company, { type: 'invoice' });
+
+module.exports = { sendProformaEmail, sendInvoiceEmail };

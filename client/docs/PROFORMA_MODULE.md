@@ -114,7 +114,7 @@ One of the central features is the 1-click conversion from a Proforma quotation 
   [InvoiceContext.addInvoice()]
    - Attaches `proformaRefs: [proforma.invoiceNumber]`
    - Attaches `sourceProformaNumber: proforma.invoiceNumber`
-   - Issues a new tax invoice sequence number (e.g. FSIN-0005)
+   - Issues a new tax invoice sequence number (e.g. FS/26-27/0005)
    - Saves into MongoDB via POST /api/invoices
          │
          ▼ Done

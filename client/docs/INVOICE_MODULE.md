@@ -48,7 +48,7 @@ Configures defaults, prefix, and schema rules for the invoice engine:
 const invoiceConfig = {
   title: "Invoice",
   localStorageKey: "invoices",
-  numberPrefix: "FSIN-",
+  numberPrefix: "FS/26-27/",
   currency: "₹",
   companyDetails: {
     name: "Futentia Solutions Private Limited",
@@ -89,7 +89,7 @@ Provided by `<InvoiceProvider>` at the root of the app.
 | `invoices` | `Array<Invoice>` | List of all invoices for the authenticated user |
 | `isLoading` | `boolean` | `true` during API sync |
 | `error` | `string \| null` | Error string if API request fails |
-| `addInvoice(invoiceData)` | `Async Function` | Posts to MongoDB API; sequence number (`FSIN-xxxx`) is generated atomically by the server |
+| `addInvoice(invoiceData)` | `Async Function` | Posts to MongoDB API; sequence number (`FS/26-27/xxxx`) is generated atomically by the server |
 | `updateInvoice(id, data)` | `Async Function` | Updates invoice in MongoDB and local state |
 | `deleteInvoice(id)` | `Async Function` | Deletes invoice from MongoDB and local state |
 | `getInvoice(id)` | `Function` | Finds an invoice by `_id` or `invoiceNumber` |
@@ -97,7 +97,7 @@ Provided by `<InvoiceProvider>` at the root of the app.
 
 ### Atomic Server-Side Sequencing
 To eliminate duplicate IDs and race conditions, invoice numbers are **not** generated on the client. 
-When `POST /api/invoices` is executed, the backend increments an atomic counter (`counters` collection, key: `invoice_{userId}`) using MongoDB's `findOneAndUpdate` with `$inc: { seq: 1 }`. The resulting formatted number (e.g., `FSIN-0001`, `FSIN-0002`) is assigned authoritatively.
+When `POST /api/invoices` is executed, the backend increments an atomic counter (`counters` collection, key: `invoice_{userId}`) using MongoDB's `findOneAndUpdate` with `$inc: { seq: 1 }`. The resulting formatted number (e.g., `FS/26-27/0001`, `FS/26-27/0002`) is assigned authoritatively.
 
 ---
 
@@ -125,7 +125,7 @@ interface Invoice {
   _id: string;               // MongoDB document ID
   id?: string;               // Normalized ID
   userId: string;            // Owner user ID (multi-tenancy)
-  invoiceNumber: string;     // e.g. "FSIN-0001" (server-generated)
+  invoiceNumber: string;     // e.g. "FS/26-27/0001" (server-generated)
   referenceNo?: string;      // Comma-separated proforma numbers or PO numbers
   proformaRefs?: string[];   // Array of referenced proforma numbers
   sourceProformaNumber?: string; // Direct source proforma if converted

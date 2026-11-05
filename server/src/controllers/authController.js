@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getCollection, buildDocument, normalizeDoc } = require('../models/User');
 const { getEmailError } = require('../utils/email');
+const { isValidNumberPrefix } = require('../utils/numberPrefix');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -167,7 +168,10 @@ const IMAGE_KEYS = ['logo', 'esign', 'stamp'];
 const TEXT_KEYS = [
   'companyName', 'phone', 'email', 'address',
   'bankName', 'ifscCode', 'branchName', 'accountNumber', 'accountName',
+  'invoicePrefix', 'proformaPrefix',
 ];
+
+const NUMBER_PREFIX_ERROR = 'ID prefix can use letters, numbers and - / _ . only (max 20 characters).';
 
 const updateCompanyAssets = async (req, res) => {
   const updates = {};
@@ -192,6 +196,9 @@ const updateCompanyAssets = async (req, res) => {
       if (emailError) {
         return res.status(400).json({ error: emailError });
       }
+    }
+    if ((key === 'invoicePrefix' || key === 'proformaPrefix') && val && val.trim() && !isValidNumberPrefix(val.trim())) {
+      return res.status(400).json({ error: NUMBER_PREFIX_ERROR });
     }
     updates[`companyAssets.${key}`] = val ? String(val).trim() : '';
   }

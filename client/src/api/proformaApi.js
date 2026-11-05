@@ -23,6 +23,12 @@ export const fetchProformas = () =>
     headers: getAuthHeaders(),
   }).then(handle);
 
+/** Peek at the number the next proforma will be given (does not reserve it) */
+export const fetchNextProformaNumber = () =>
+  fetch(`${BASE}/api/proformas/next-number`, {
+    headers: getAuthHeaders(),
+  }).then(handle);
+
 /** Create a new proforma invoice */
 export const createProforma = (proforma) =>
   fetch(`${BASE}/api/proformas`, {

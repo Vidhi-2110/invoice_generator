@@ -3,34 +3,23 @@ import Cropper from 'react-easy-crop';
 import {
   FiSave, FiCamera, FiTrash2, FiBriefcase, FiPhone, FiMail, FiMapPin,
   FiCreditCard, FiFileText, FiZoomIn, FiZoomOut, FiRotateCw, FiCrop,
-  FiCheck, FiX, FiAlertCircle, FiInfo, FiTag, FiDroplet,
+  FiCheck, FiX, FiAlertCircle, FiInfo, FiTag, FiDroplet, FiHash,
 } from 'react-icons/fi';
 import { useCompanySettings } from '../../components/Layout/CompanySettingsContext';
 import { COLOR_PALETTES, applyPalette, getPaletteById } from '../../core/theme/palettes';
-import { sanitizePhone, isValidPhone, PHONE_ERROR, getEmailError } from '../../core/utils';
-
-/* ─── Canvas crop helper ────────────────────────────────────────────────────── */
-async function getCroppedImg(imageSrc, pixelCrop, rotation = 0, size = 400) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      ctx.translate(size / 2, size / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
-      ctx.translate(-size / 2, -size / 2);
-      ctx.drawImage(img, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, size, size);
-      resolve(canvas.toDataURL('image/png', 0.95));
-    };
-    img.onerror = reject;
-    img.src = imageSrc;
-  });
-}
+import { sanitizePhone, isValidPhone, PHONE_ERROR, getEmailError, getCroppedImg,
+  sanitizeNumberPrefix, isValidNumberPrefix, NUMBER_PREFIX_ERROR, formatNumberPreview, DEFAULT_INVOICE_PREFIX, DEFAULT_PROFORMA_PREFIX } from '../../core/utils';
 
 /* ─── Image Cropper Overlay ─────────────────────────────────────────────────── */
-function ImageCropperOverlay({ imageSrc, cropShape, onConfirm, onCancel }) {
+const LOGO_ASPECTS = [
+  { label: 'Square', value: 1 },
+  { label: 'Wide 2:1', value: 2 },
+  { label: 'Wide 3:1', value: 3 },
+];
+const DEFAULT_ASPECTS = [{ label: 'Square', value: 1 }];
+
+function ImageCropperOverlay({ imageSrc, cropShape, aspects = DEFAULT_ASPECTS, onConfirm, onCancel }) {
+  const [aspect, setAspect] = useState(aspects[0].value);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -78,7 +67,9 @@ function ImageCropperOverlay({ imageSrc, cropShape, onConfirm, onCancel }) {
             crop={crop}
             zoom={zoom}
             rotation={rotation}
-            aspect={1}
+            aspect={aspect}
+            minZoom={0.5}
+            restrictPosition={false}
             cropShape={cropShape}
             showGrid={false}
             onCropChange={setCrop}
@@ -94,12 +85,27 @@ function ImageCropperOverlay({ imageSrc, cropShape, onConfirm, onCancel }) {
         </div>
 
         <div className="px-5 py-4 space-y-3">
+          {aspects.length > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-400">Shape</span>
+              {aspects.map(a => (
+                <button
+                  key={a.label}
+                  type="button"
+                  onClick={() => setAspect(a.value)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${aspect === a.value ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-indigo-50'}`}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setZoom(z => Math.max(1, +(z - 0.1).toFixed(2)))} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100">
+            <button type="button" onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(2)))} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100">
               <FiZoomOut size={14} />
             </button>
             <input
-              type="range" min={1} max={3} step={0.02} value={zoom}
+              type="range" min={0.5} max={3} step={0.02} value={zoom}
               onChange={e => setZoom(Number(e.target.value))}
               className="flex-1 h-1.5 rounded-full accent-indigo-600 cursor-pointer"
             />
@@ -140,7 +146,7 @@ function ImageCropperOverlay({ imageSrc, cropShape, onConfirm, onCancel }) {
 }
 
 /* ─── Image Upload Card ─────────────────────────────────────────────────────── */
-function ImageUploadCard({ label, hint, value, cropShape = 'round', onChange, onRemove, previewClass = '' }) {
+function ImageUploadCard({ label, hint, value, cropShape = 'round', aspects, onChange, onRemove, previewClass = '' }) {
   const fileRef = useRef(null);
   const [rawSrc, setRawSrc] = useState(null);
   const [showCrop, setShowCrop] = useState(false);
@@ -202,6 +208,7 @@ function ImageUploadCard({ label, hint, value, cropShape = 'round', onChange, on
         <ImageCropperOverlay
           imageSrc={rawSrc}
           cropShape={cropShape}
+          aspects={aspects}
           onConfirm={(b64) => { onChange(b64); setShowCrop(false); setRawSrc(null); }}
           onCancel={() => { setShowCrop(false); setRawSrc(null); }}
         />
@@ -269,6 +276,8 @@ export default function SettingsPage() {
     branchName: settings.branchName || '',
     accountNumber: settings.accountNumber || '',
     accountName: settings.accountName || '',
+    invoicePrefix: settings.invoicePrefix || '',
+    proformaPrefix: settings.proformaPrefix || '',
     esign: settings.esign || null,
     stamp: settings.stamp || null,
   });
@@ -292,6 +301,10 @@ export default function SettingsPage() {
     }
     if (form.phone && !isValidPhone(form.phone)) {
       setError(PHONE_ERROR);
+      return;
+    }
+    if (!isValidNumberPrefix(form.invoicePrefix) || !isValidNumberPrefix(form.proformaPrefix)) {
+      setError(NUMBER_PREFIX_ERROR);
       return;
     }
     const emailMsg = getEmailError(form.email);
@@ -350,7 +363,8 @@ export default function SettingsPage() {
                 label="Logo"
                 hint="Max 5 MB · JPG, PNG · Shown in sidebar & invoices"
                 value={form.logo}
-                cropShape="round"
+                cropShape="rect"
+                aspects={LOGO_ASPECTS}
                 previewClass="w-28 h-28 rounded-2xl"
                 onChange={set('logo')}
                 onRemove={() => setForm(f => ({ ...f, logo: null }))}
@@ -476,6 +490,41 @@ export default function SettingsPage() {
               />
             </div>
           </div>
+        </Section>
+
+        {/* ── Document Numbering ─────────────────────────────────────────── */}
+        <Section icon={FiHash} title="Document Numbering" subtitle="Choose how your Invoice and Proforma IDs start. Numbers keep counting up automatically.">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <Field
+                label="Invoice ID Prefix" icon={FiHash}
+                value={form.invoicePrefix}
+                onChange={(v) => setForm(f => ({ ...f, invoicePrefix: sanitizeNumberPrefix(v) }))}
+                placeholder={DEFAULT_INVOICE_PREFIX} maxLength={20}
+                hint="Letters, numbers and - / _ . only. Leave blank for the default."
+              />
+              <p className="text-[11px] text-slate-500 mt-1.5">
+                Example invoice ID:{' '}
+                <span className="font-bold text-indigo-600">{formatNumberPreview(form.invoicePrefix, DEFAULT_INVOICE_PREFIX, 1)}</span>
+              </p>
+            </div>
+            <div>
+              <Field
+                label="Proforma ID Prefix" icon={FiHash}
+                value={form.proformaPrefix}
+                onChange={(v) => setForm(f => ({ ...f, proformaPrefix: sanitizeNumberPrefix(v) }))}
+                placeholder={DEFAULT_PROFORMA_PREFIX} maxLength={20}
+                hint="Letters, numbers and - / _ . only. Leave blank for the default."
+              />
+              <p className="text-[11px] text-slate-500 mt-1.5">
+                Example proforma ID:{' '}
+                <span className="font-bold text-indigo-600">{formatNumberPreview(form.proformaPrefix, DEFAULT_PROFORMA_PREFIX, 1)}</span>
+              </p>
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-4">
+            Only new documents use the new prefix. Existing invoices and proformas keep their current IDs, and the number part continues from your last one.
+          </p>
         </Section>
 
         {/* ── 3. Bank Details ───────────────────────────────────────────── */}

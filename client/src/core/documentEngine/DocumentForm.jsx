@@ -3,6 +3,8 @@ import { Button, InputField, TextAreaField, MultiSelectDropdown, SearchableSelec
 import { generateNextNumber, getLineAmount, getLineQty, getLinesSubtotal, sanitizePhone, isValidPhone, PHONE_ERROR, sanitizeGstin, isValidGstin, GSTIN_ERROR, getEmailError } from '../utils';
 import { useClients } from '../../modules/client';
 import { fetchSacCodes } from '../../api/sacCodeApi';
+import { fetchNextInvoiceNumber } from '../../api/invoiceApi';
+import { fetchNextProformaNumber } from '../../api/proformaApi';
 import { FiSave, FiRefreshCw, FiArrowLeft, FiUser, FiMail, FiPhone, FiMapPin, FiFileText, FiCheckSquare, FiSquare, FiLock, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 
 const createLineItem = () => ({ sacId: '', sacCode: '', sacDescription: '', description: '', qty: '1', rate: '' });
@@ -91,6 +93,19 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
   });
 
   const [errors, setErrors] = useState({});
+
+  // The server owns invoice/proforma numbering (and the user's chosen prefix) (atomic counter), so ask it for the real next number
+  // instead of guessing from the loaded list — otherwise every new form shows the same ID.
+  useEffect(() => {
+    if (isEdit) return undefined;
+    let cancelled = false;
+    (isProforma ? fetchNextProformaNumber : fetchNextInvoiceNumber)()
+      .then(({ invoiceNumber }) => {
+        if (!cancelled && invoiceNumber) setFormData((prev) => ({ ...prev, invoiceNumber }));
+      })
+      .catch((err) => console.error('[DocumentForm] fetchNextInvoiceNumber:', err.message));
+    return () => { cancelled = true; };
+  }, [isEdit, isProforma]);
   const [showInvoicedProformas, setShowInvoicedProformas] = useState(false);
 
   // Determines if a proforma has already been invoiced (Approved/Paid or linked to an existing invoice)
@@ -879,12 +894,12 @@ const DocumentForm = ({ items = [], initialData, onSave, onCancel, isEdit = fals
             {formData.lineItems.map((item, index) => (
               <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-slate-100 rounded-xl bg-slate-50/50">
                 <SearchableSelect
-                  label="SAC Code"
+                  label="HSN/SAC"
                   options={sacOptions}
                   value={item.sacCode}
                   onChange={(code) => handleSacChange(index, code)}
-                  placeholder={sacStatus === 'loading' ? 'Loading SAC codes…' : 'Select SAC code…'}
-                  emptyMessage={sacStatus === 'error' ? 'Could not load SAC codes. Reload the page to try again.' : 'No SAC codes found'}
+                  placeholder={sacStatus === 'loading' ? 'Loading HSN/SAC codes…' : 'Select HSN/SAC…'}
+                  emptyMessage={sacStatus === 'error' ? 'Could not load HSN/SAC codes. Reload the page to try again.' : 'No HSN/SAC codes found'}
                 />
                 <InputField
                   label={index === 0 ? "Line Item Description" : "Description"}

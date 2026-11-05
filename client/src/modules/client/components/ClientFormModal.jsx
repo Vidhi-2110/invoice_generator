@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FiX, FiUser, FiMail, FiPhone, FiMapPin, FiFileText, FiSave, FiCheckCircle } from 'react-icons/fi';
+import { FiX, FiUser, FiMail, FiPhone, FiMapPin, FiFileText, FiSave, FiCheckCircle, FiLock } from 'react-icons/fi';
 import { generateNextNumber, sanitizePhone, isValidPhone, PHONE_ERROR, sanitizeGstin, isValidGstin, GSTIN_ERROR, getEmailError } from '../../../core/utils';
 
 const buildInitialFormData = (clientToEdit, existingClients) => {
@@ -113,13 +113,18 @@ const ClientFormModal = ({ isOpen, onClose, onSave, clientToEdit = null, existin
                 <label className="block text-xs font-bold text-slate-600 mb-1">
                   Unique Client ID <span className="text-slate-400 font-normal">(Auto-generated)</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.clientId}
-                  onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                  required
-                  className="w-full px-3.5 py-2 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-indigo-600 tracking-wide"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.clientId}
+                    readOnly
+                    tabIndex={-1}
+                    aria-readonly="true"
+                    title="The Unique Client ID is assigned automatically and cannot be edited"
+                    className="w-full pl-3.5 pr-9 py-2 text-xs font-bold bg-slate-100 border border-slate-200 rounded-xl text-slate-500 tracking-wide cursor-not-allowed select-none focus:outline-none"
+                  />
+                  <FiLock size={13} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
               </div>
 
               <div>

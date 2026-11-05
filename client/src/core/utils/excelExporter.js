@@ -35,7 +35,7 @@ const summarizeLineItems = (item) => {
   const lineItems = item.lineItems || [];
   return lineItems.length > 0
     ? lineItems
-        .map((l) => `${l.description || 'Item'}${l.sacCode ? ` [SAC: ${l.sacCode}]` : ''} (${l.hours || l.qty || 1}x ₹${l.rate || 0})`)
+        .map((l) => `${l.description || 'Item'}${l.sacCode ? ` [HSN/SAC: ${l.sacCode}]` : ''} (${l.hours || l.qty || 1}x ₹${l.rate || 0})`)
         .join(' | ')
     : `Rate: ₹${item.rate || 0}`;
 };
@@ -93,7 +93,7 @@ const generateCSV = (items = [], isProforma = false) => {
     'GST 18% (₹)',
     'Total Amount (₹)',
     'Line Items Summary',
-    'SAC Codes',
+    'HSN/SAC',
   ];
 
   const rows = [headers.map(escapeCSV).join(',')];
@@ -153,7 +153,7 @@ const generateCombinedCSV = (invoices = [], proformas = []) => {
     'GST 18% (₹)',
     'Total Amount (₹)',
     'Line Items Summary',
-    'SAC Codes',
+    'HSN/SAC',
   ];
 
   const rows = [headers.map(escapeCSV).join(',')];

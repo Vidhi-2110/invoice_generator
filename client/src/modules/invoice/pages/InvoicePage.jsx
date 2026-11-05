@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useInvoices } from '../context/InvoiceContext';
 import InvoiceTable from '../components/InvoiceTable';
 import InvoiceForm from '../components/InvoiceForm';
@@ -7,7 +8,17 @@ import { FiPlus } from 'react-icons/fi';
 
 const InvoicePage = () => {
   const { invoices, addInvoice, config } = useInvoices();
-  const [showForm, setShowForm] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // The dashboard's "Create Invoice" button links here with { openForm: true } to land on the form
+  const [showForm, setShowForm] = useState(Boolean(location.state?.openForm));
+
+  // Clear the flag so a refresh or a later visit shows the list again, not the form
+  useEffect(() => {
+    if (location.state?.openForm) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const handleSave = (invoiceData) => {
     addInvoice({

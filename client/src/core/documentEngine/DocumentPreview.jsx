@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components';
-import { calculateTax, calculateGrandTotal, formatCurrency, formatNumericDate, numberToWords, getLineQty, getLineAmount, getLinesSubtotal } from '../utils';
+import { calculateTax, calculateGrandTotal, formatCurrency, formatNumericDate, numberToWords, getLineQty, getLineAmount, getLinesSubtotal, trimImageEdges } from '../utils';
 import { FiArrowLeft, FiPrinter } from 'react-icons/fi';
 import { useCompanySettings } from '../../components/Layout/CompanySettingsContext';
 
@@ -42,10 +42,20 @@ const DocumentPreview = ({ item, config }) => {
     if (shouldPrint && item) {
       const timer = setTimeout(() => {
         window.print();
-      }, 500);
+      }, 800);
       return () => clearTimeout(timer);
     }
   }, [shouldPrint, item]);
+
+  // Trim blank edges so the logo fills its box instead of floating in padding
+  const rawLogo = settings.logo || null;
+  const [trimmedLogo, setTrimmedLogo] = useState({ src: null, out: null });
+  useEffect(() => {
+    if (!rawLogo) return undefined;
+    let cancelled = false;
+    trimImageEdges(rawLogo).then((out) => { if (!cancelled) setTrimmedLogo({ src: rawLogo, out }); });
+    return () => { cancelled = true; };
+  }, [rawLogo]);
 
   if (!item) {
     return (
@@ -79,7 +89,7 @@ const DocumentPreview = ({ item, config }) => {
   const bankIfsc       = settings.ifscCode       || 'ICIC0000003';
   const bankBranch     = settings.branchName     || 'Main Branch';
   const accountName    = settings.accountName    || companyName;
-  const companyLogo    = settings.logo           || null;
+  const companyLogo = rawLogo ? (trimmedLogo.src === rawLogo ? trimmedLogo.out : rawLogo) : null;
   const esign          = settings.esign          || null;
   const stamp          = settings.stamp          || null;
 
@@ -114,7 +124,7 @@ const DocumentPreview = ({ item, config }) => {
                   <img
                     src={companyLogo}
                     alt={companyName}
-                    className="h-12 print:h-10 w-auto object-contain"
+                    className="h-auto w-auto max-h-24 max-w-64 print:max-h-20 print:max-w-56 object-contain"
                   />
                 ) : companyName ? (
                   <div
@@ -207,7 +217,7 @@ const DocumentPreview = ({ item, config }) => {
                 >
                   <th className="py-2.5 px-3 print:py-1.5 w-16 whitespace-nowrap">Sr. No.</th>
                   <th className="py-2.5 px-3 print:py-1.5">Description of Service</th>
-                  <th className="py-2.5 px-3 print:py-1.5 w-24 whitespace-nowrap">SAC Code</th>
+                  <th className="py-2.5 px-3 print:py-1.5 w-24 whitespace-nowrap">HSN/SAC</th>
                   <th className="py-2.5 px-3 print:py-1.5 text-right w-14">Qty</th>
                   <th className="py-2.5 px-3 print:py-1.5 text-right w-28">Rate</th>
                   <th className="py-2.5 px-3 print:py-1.5 text-right w-28">Amount</th>

@@ -3,6 +3,7 @@ const { getCollection, buildDocument, normalizeDoc } = require('../models/Profor
 const { getCollection: getClientCollection } = require('../models/Client');
 const { sendProformaEmail } = require('../services/emailService');
 const { buildCompanyFromUser } = require('../models/User');
+const { getNumberPrefix } = require('../utils/numberPrefix');
 
 // ─── Atomic Proforma Number Generator ────────────────────────────────────────
 /**
@@ -50,8 +51,8 @@ const ensureCounterInitialized = async (dbClient, userId, prefix = 'FSPI-') => {
   const docs = await proformaCol.find(query).toArray();
 
   let maxNumber = 0;
-  const escapedPrefix = prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-  const regex = new RegExp(`${escapedPrefix}(\\d+)`);
+  // Trailing digits, so a custom prefix never resets the sequence
+  const regex = /(\d+)$/;
 
   for (const doc of docs) {
     const numStr = doc.invoiceNumber || '';
@@ -68,6 +69,21 @@ const ensureCounterInitialized = async (dbClient, userId, prefix = 'FSPI-') => {
     { $setOnInsert: { sequenceValue: maxNumber } },
     { upsert: true }
   );
+};
+
+// ─── GET /api/proformas/next-number ──────────────────────────────────────────
+const getNextProformaNumber = async (req, res) => {
+  try {
+    const dbClient = req.app.locals.dbClient;
+    const userId = req.user?.id;
+    const prefix = await getNumberPrefix(dbClient, userId, 'proforma');
+    await ensureCounterInitialized(dbClient, userId, prefix);
+    const counter = await dbClient.db('Invoice').collection('counters').findOne({ _id: `proforma_${userId || 'global'}` });
+    res.json({ invoiceNumber: `${prefix}${String((counter?.sequenceValue || 0) + 1).padStart(4, '0')}` });
+  } catch (err) {
+    console.error('[ProformaController] getNextProformaNumber:', err.message);
+    res.status(500).json({ error: 'Failed to get next proforma number' });
+  }
 };
 
 // ─── GET /api/proformas ──────────────────────────────────────────────────────
@@ -91,7 +107,8 @@ const createProforma = async (req, res) => {
 
     // Generate a unique, sequential proforma number server-side
     const userId = req.user?.id;
-    const invoiceNumber = await generateProformaNumber(req.app.locals.dbClient, userId);
+    const proformaPrefix = await getNumberPrefix(req.app.locals.dbClient, userId, 'proforma');
+    const invoiceNumber = await generateProformaNumber(req.app.locals.dbClient, userId, proformaPrefix);
 
     const doc = buildDocument({ ...req.body, userId, invoiceNumber });
     const result = await col.insertOne(doc);
@@ -318,6 +335,7 @@ const downloadProformaPdf = async (req, res) => {
 };
 
 module.exports = {
+  getNextProformaNumber,
   getAllProformas,
   createProforma,
   updateProforma,
